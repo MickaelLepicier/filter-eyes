@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>פילטר צבעי עיניים (מסומן) – blink gating</title>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+</head>
+<body>
+<div id="eye-filter-widget" style="max-width: 640px; margin: 16px auto; padding: 0 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">
+  <style>
+    #eye-filter-widget * { box-sizing: border-box; }
+    .efw-card{border:1px solid #e5e7eb;border-radius:16px;padding:20px;box-shadow:0 4px 24px rgba(0,0,0,0.1);background:#fff;direction:rtl}
+    @media (max-width:480px){.efw-card{padding:12px}}
+    .efw-row{display:flex;flex-direction:column;gap:20px;align-items:center}
+
+    /* חלון מצלמה – גבוה לאורך */
+    .efw-video-wrap{position:relative;width:100%;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.2);aspect-ratio:3/4;min-height:60vh;max-height:80vh}
+    @media (max-width:720px){.efw-video-wrap{min-height:70vh;max-height:85vh}}
+    @media (min-width:721px){.efw-video-wrap{min-height:65vh;max-height:75vh}}
+
+    #efw-canvas{width:100%;height:100%;display:block;border-radius:12px;object-fit:contain}
+    video#efw-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none}
+    .efw-label{display:block;font-size:14px;color:#1e293b;margin-bottom:8px;font-weight:600}
+    .efw-inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+    /* \u05db\u05e4\u05ea\u05d5\u05e8\u05d9 \u05e6\u05d1\u05e2: \u05de\u05e2\u05d5\u05d2\u05d9\u05dd \u05dc\u05d0\u05dc\u05d9\u05e4\u05e1\u05d4 \u05d0\u05d5\u05d1\u05dc\u05d9\u05ea (pill) \u05d5\u05de\u05e6\u05d9\u05d2\u05d9\u05dd \u05d0\u05ea \u05e9\u05dd \u05d4\u05e6\u05d1\u05e2 \u05de-attr(title) */
+    .efw-chip{display:inline-flex;align-items:center;justify-content:center;height:34px;min-width:96px;padding:0 14px;border-radius:9999px;border:2px solid #cbd5e1;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;box-shadow:0 2px 4px rgba(0,0,0,.1);white-space:nowrap;font-size:12px;font-weight:700;line-height:1;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)}
+    .efw-chip::after{content:attr(title)}
+    .efw-chip:hover{transform:scale(1.04);border-color:#475569}
+    .efw-chip.active{border-color:#0ea5e9;box-shadow:0 0 0 2px rgba(14,165,233,.2)}
+
+    .efw-btn{appearance:none;border:1px solid #0f172a;background:#0f172a;color:#fff;padding:12px 16px;border-radius:10px;cursor:pointer;font-weight:600;transition:all .2s ease;font-size:14px}
+    .efw-btn:hover{background:#1e293b;transform:translateY(-1px)}
+    .efw-btn.sec{background:#fff;color:#0f172a;border-color:#cbd5e1}
+    .efw-btn.sec:hover{background:#f1f5f9}
+    .efw-btn:disabled{opacity:.6;cursor:not-allowed;transform:none}
+    .efw-small{font-size:12px;color:#64748b;line-height:1.4}
+    .efw-status-bad{color:#dc2626;font-weight:600}
+    .efw-status-ok{color:#059669;font-weight:600}
+    .efw-slider{width:100%;margin:8px 0}
+    .efw-status{margin-top:12px;min-height:24px;white-space:pre-line;padding:8px;background:#f8fafc;border-radius:8px;border:1px solid #e2e8f0}
+    .efw-color-input{width:40px;height:40px;border:none;border-radius:8px;cursor:pointer}
+    .loading-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin:0 2px;animation:loading 1.4s infinite ease-in-out both}
+    .loading-dot:nth-child(1){animation-delay:-.32s}
+    .loading-dot:nth-child(2){animation-delay:-.16s}
+    @keyframes loading{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
+
+    /* לוגו סטטי מעל חלון המצלמה */
+    .efw-logo{position:absolute;z-index:3;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:9999px;background:rgba(15,23,42,.72);color:#fff;font-weight:700;border:1px solid #0f172a;box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none;user-select:none;font-size:14px;line-height:1}
+
+    /* כפתור הפעלת מצלמה במרכז */
+    #efw-start-center{position:absolute;z-index:4;top:50%;left:50%;transform:translate(-50%,-50%);padding:16px 32px;border-radius:12px;border:none;background:#0f172a;color:#fff;font-size:18px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer;transition:all .3s ease;opacity:1;pointer-events:auto}
+    #efw-start-center:hover{background:#1e293b;transform:translate(-50%,-50%) scale(1.05)}
+    #efw-start-center:active{transform:translate(-50%,-50%) scale(.98)}
+    .camera-running #efw-start-center{opacity:0;pointer-events:none}
+
+    /* חלונית צבעים צפה */
+    .efw-palette{position:absolute;z-index:4;top:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px}
+    .efw-video-wrap.palette-open .efw-palette{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
+    
+    /* כפתור צבעים צף */
+    #efw-fab{position:absolute;z-index:4;bottom:12px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:9999px;border:none;background:#0f172a;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;opacity:0;pointer-events:none;transition:opacity .3s ease}
+    #efw-fab:hover{filter:brightness(1.05)}
+    #efw-fab:active{transform:translateX(-50%) scale(.98)}
+    .camera-running #efw-fab{opacity:1;pointer-events:auto}
+  </style>
+
+  <div class="efw-card">
+    <div class="efw-row">
+      <div style="width:100%">
+        <div class="efw-video-wrap">
+          <!-- לוגו סטטי קבוע בחלק העליון של חלון המצלמה -->
+          <div class="efw-logo">Kerato.Life️👁</div>
+
+          <!-- כפתור הפעלת מצלמה במרכז -->
+          <button id="efw-start-center" type="button">הפעל מצלמה</button>
+
+          <!-- חלונית קופצת: 16 צבעים + סליידר עוצמה -->
+          <div class="efw-palette" id="efw-palette" role="dialog" aria-hidden="true">
+            <div class="efw-inline" style="margin-bottom:8px">
+              <input id="efw-color" class="efw-color-input" type="hidden" value="#b7a49d" aria-label="בחר צבע" />
+              <div class="efw-inline">
+                <div class="efw-chip active" data-color="#C8A89E" title="Dune" style="background:#C8A89E"></div>
+                <div class="efw-chip" data-color="#8C5B3B" title="Sand ER19D" style="background:#8C5B3B"></div>
+                <div class="efw-chip" data-color="#B8912E" title="Honey Gold" style="background:#B8912E"></div>
+                <div class="efw-chip" data-color="#A27B34" title="Sahara" style="background:#A27B34"></div>
+                <div class="efw-chip" data-color="#9B7B42" title="Tropical" style="background:#9B7B42"></div>
+                <div class="efw-chip" data-color="#9CB08C" title="Savana" style="background:#9CB08C"></div>
+                <div class="efw-chip" data-color="#6C8B5C" title="Pistache CT88" style="background:#6C8B5C"></div>
+                <div class="efw-chip" data-color="#A6CBB7" title="Jade" style="background:#A6CBB7"></div>
+                <div class="efw-chip" data-color="#C5DAD0" title="Arctique" style="background:#C5DAD0"></div>
+                <div class="efw-chip" data-color="#95B7C7" title="Green Water" style="background:#95B7C7"></div>
+                <div class="efw-chip" data-color="#6AA6C9" title="Turquoise" style="background:#6AA6C9"></div>
+                <div class="efw-chip" data-color="#5C82C4" title="New Blue" style="background:#5C82C4"></div>
+                <div class="efw-chip" data-color="#4B5C91" title="Pacific" style="background:#4B5C91"></div>
+                <div class="efw-chip" data-color="#8DB5E0" title="Azur" style="background:#8DB5E0"></div>
+                <div class="efw-chip" data-color="#D4D9E8" title="Polar Grey" style="background:#D4D9E8"></div>
+                <div class="efw-chip" data-color="#AFAFB9" title="Pearl" style="background:#AFAFB9"></div>
+              </div>
+            </div>
+            <div>
+              <label class="efw-label">עוצמת הצבע</label>
+              <input id="efw-alpha" class="efw-slider" type="range" min="10" max="100" value="65" />
+              <div class="efw-small">עוצמה: <span id="efw-alpha-val">65</span>%</div>
+            </div>
+          </div>
+
+          <canvas id="efw-canvas"></canvas>
+          <video id="efw-video" playsinline autoplay muted></video>
+
+          <!-- כפתור עגול צף לפתיחה/סגירה של החלונית -->
+          <button id="efw-fab" type="button" title="בחירת צבע" aria-controls="efw-palette" aria-expanded="false">🎨</button>
+        </div>
+        <div id="efw-status" class="efw-status efw-small">לחץ על "הפעל מצלמה" להתחלה</div>
+        <button id="efw-stop" class="efw-btn sec" disabled style="margin-top:16px;padding:14px 32px">עצור מצלמה</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    'use strict';
+
+    const video = document.getElementById('efw-video');
+    const canvas = document.getElementById('efw-canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const statusEl = document.getElementById('efw-status');
+
+    const btnStartCenter = document.getElementById('efw-start-center');
+    const btnStop  = document.getElementById('efw-stop');
+    const colorInp = document.getElementById('efw-color');
+    const alphaInp = document.getElementById('efw-alpha');
+    const alphaVal = document.getElementById('efw-alpha-val');
+
+    // כפתור צף + שליטה על פתיחה/סגירה של חלונית הצבעים
+    const fabBtn = document.getElementById('efw-fab');
+    const wrapEl = document.querySelector('.efw-video-wrap');
+    const pal = document.getElementById('efw-palette');
+    
+    if (fabBtn && wrapEl && pal){
+      fabBtn.addEventListener('click', ()=>{
+        const isOpen = wrapEl.classList.toggle('palette-open');
+        fabBtn.setAttribute('aria-expanded', String(isOpen));
+        pal.setAttribute('aria-hidden', String(!isOpen));
+      });
+    }
+    
+    // קבוע למצב ערבוב רגיל
+    const blendMode = 'source-over';
+
+    let running = false;
+    let stream = null;
+    let faceMesh = null;
+    let animationId = null;
+    let currentEyes = { left: null, right: null };
+    let currentEyelids = { left: null, right: null };
+
+    const REALISM = {
+      SIZE_MULTIPLIER: 0.92,
+      MIN_RADIUS: 6,
+      MAX_RADIUS: 36,
+      IRIS_SHRINK: 0.90,
+      RING_MARGIN: 0.92,
+      PUPIL_RATIO: 0.32,
+      LIMBAL_WIDTH: 0.18,
+      LIMBAL_ALPHA: 0.55,
+      HIGHLIGHT_ALPHA: 0.35,
+      HIGHLIGHT_OFFSET: 0.28,
+      FIBER_COUNT: 36,
+      FIBER_ALPHA: 0.14,
+      FIBER_INNER: 0.28,
+      FIBER_OUTER: 0.95,
+      EDGE_DARKEN: 0.25,
+      INNER_GLOW: 0.20,
+      SMOOTHING: 0.35,
+      CENTER_BLEND: 0.6,
+      CENTER_Y_OFFSET: -0.06,
+      FIBER_JITTER: 0.06,
+      FIBER_LIGHT_ALPHA: 0.06,
+      FIBER_CLEAR_COUNT: 0,
+      FIBER_CLEAR_ALPHA: 0,
+      FIBER_CLEAR_THICKNESS: 0.5,
+      FIBER_CLEAR_INNER: 0.20,
+      FIBER_CLEAR_OUTER: 0.97,
+      BAND_COUNT: 4,
+      BAND_ALPHA: 0.06,
+      FILL_BOOST_ALPHA: 0.12
+    };
+
+    const EYELID_MASK = {
+      ENABLED: true,
+      CLIP_STRENGTH: 0.55,
+      BLUR_PX: 1.4
+    };
+
+    const BLINK = { T0: 0.14, T1: 0.22 }; // רמפה: מתחת ל-T0 נכבה, בין T0 ל-T1 דועך, מעל T1 מלא
+
+    const noiseCanvas = document.createElement('canvas');
+    const noiseCtx = noiseCanvas.getContext('2d');
+    noiseCanvas.width = 64; noiseCanvas.height = 64;
+    (function buildNoise(){
+      const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
+      for (let i=0; i<img.data.length; i+=4){
+        const v = 120 + Math.floor(Math.random()*16);
+        img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 10;
+      }
+      noiseCtx.putImageData(img, 0, 0);
+    })();
+
+    const eyeColorLayer = document.createElement('canvas');
+    const eyeColorCtx = eyeColorLayer.getContext('2d');
+    const eyeShadeLayer = document.createElement('canvas');
+    const eyeShadeCtx = eyeShadeLayer.getContext('2d');
+    function ensureEyeLayersSize(size){
+      const s = Math.max(16, Math.ceil(size));
+      if (eyeColorLayer.width !== s || eyeColorLayer.height !== s){ eyeColorLayer.width = s; eyeColorLayer.height = s; }
+      if (eyeShadeLayer.width !== s || eyeShadeLayer.height !== s){ eyeShadeLayer.width = s; eyeShadeLayer.height = s; }
+      eyeColorCtx.clearRect(0,0,s,s);
+      eyeShadeCtx.clearRect(0,0,s,s);
+    }
+
+    const eyeMaskLayer = document.createElement('canvas');
+    const eyeMaskCtx = eyeMaskLayer.getContext('2d');
+    const eyeMaskFeather = document.createElement('canvas');
+    const eyeMaskFeatherCtx = eyeMaskFeather.getContext('2d');
+    const eyeCutLayer = document.createElement('canvas');
+    const eyeCutCtx = eyeCutLayer.getContext('2d');
+    const eyeCutFeather = document.createElement('canvas');
+    const eyeCutFeatherCtx = eyeCutFeather.getContext('2d');
+    function ensureMaskSize(size){
+      const s = Math.max(16, Math.ceil(size));
+      if (eyeMaskLayer.width !== s || eyeMaskLayer.height !== s){ eyeMaskLayer.width = s; eyeMaskLayer.height = s; }
+      if (eyeMaskFeather.width !== s || eyeMaskFeather.height !== s){ eyeMaskFeather.width = s; eyeMaskFeather.height = s; }
+      if (eyeCutLayer.width !== s || eyeCutLayer.height !== s){ eyeCutLayer.width = s; eyeCutLayer.height = s; }
+      if (eyeCutFeather.width !== s || eyeCutFeather.height !== s){ eyeCutFeather.width = s; eyeCutFeather.height = s; }
+      eyeMaskCtx.clearRect(0,0,s,s);
+      eyeMaskFeatherCtx.clearRect(0,0,s,s);
+      eyeCutCtx.clearRect(0,0,s,s);
+      eyeCutFeatherCtx.clearRect(0,0,s,s);
+    }
+
+    const testCtx = document.createElement('canvas').getContext('2d');
+    const BLEND_SUPPORT = {};
+    ['multiply','screen','overlay','color','source-over','lighter'].forEach(m=>{
+      try{ testCtx.globalCompositeOperation = m; BLEND_SUPPORT[m] = (testCtx.globalCompositeOperation === m); }
+      catch(_){ BLEND_SUPPORT[m] = false; }
+    });
+    function resolveBlendMode(requested){
+      if (BLEND_SUPPORT[requested]) return requested;
+      if (requested === 'color') return BLEND_SUPPORT['multiply'] ? 'multiply' : 'source-over';
+      if (requested === 'overlay') return BLEND_SUPPORT['multiply'] ? 'multiply' : 'source-over';
+      if (requested === 'screen') return BLEND_SUPPORT['lighter'] ? 'lighter' : 'source-over';
+      return 'source-over';
+    }
+
+    const LEFT_IRIS_RING = [468,469,470,471];
+    const LEFT_IRIS_CENTER = 472;
+    const RIGHT_IRIS_RING = [473,474,475,476];
+    const RIGHT_IRIS_CENTER = 477;
+    const LEFT_EYE_UPPER = [159,158,157,173,133];
+    const LEFT_EYE_LOWER = [145,144,163,7,33];
+    const RIGHT_EYE_UPPER = [386,385,384,398,263];
+    const RIGHT_EYE_LOWER = [374,380,381,382,362];
+
+    function setStatus(msg, isOk = null) {
+      statusEl.textContent = msg || '';
+      statusEl.className = 'efw-status efw-small';
+      if (isOk === true)  statusEl.className += ' efw-status-ok';
+      if (isOk === false) statusEl.className += ' efw-status-bad';
+    }
+    function setLoadingStatus(msg) {
+      statusEl.innerHTML = msg + ' <span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>';
+      statusEl.className = 'efw-status efw-small';
+    }
+    function isSecureContext() {
+      return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+    function updateCanvasSize() {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
+      }
+    }
+
+    function fract(x){ return x - Math.floor(x); }
+    function prand(seed){ return fract(Math.sin(seed*12.9898)*43758.5453); }
+
+    // Blink/openness helpers
+    function dist(a,b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+    function pt(L,i){ return { x: L[i].x * canvas.width, y: L[i].y * canvas.height }; }
+    function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
+    function leftOpenness(L){
+      const up=L[159], low=L[145], l=L[33], r=L[133];
+      if(!up||!low||!l||!r) return 1; //fallback – עדיף לא לכבות מסך במקרה מידע חסר
+      return clamp01( dist(pt(L,159),pt(L,145)) / Math.max(1, dist(pt(L,33),pt(L,133))) );
+    }
+    function rightOpenness(L){
+      const up=L[386], low=L[374], l=L[263], r=L[362];
+      if(!up||!low||!l||!r) return 1;
+      return clamp01( dist(pt(L,386),pt(L,374)) / Math.max(1, dist(pt(L,263),pt(L,362))) );
+    }
+    function smoothstep(a,b,x){ const t = Math.max(0, Math.min(1, (x - a)/(b - a))); return t*t*(3-2*t); }
+
+    function calculateEyeCenter(landmarks, ringIndices, centerIdx) {
+      const W = canvas.width, H = canvas.height;
+      if (Number.isInteger(centerIdx) && landmarks[centerIdx]) {
+        return { x: landmarks[centerIdx].x * W, y: landmarks[centerIdx].y * H };
+      }
+      let sumX = 0, sumY = 0, n = 0;
+      for (const idx of ringIndices) {
+        const p = landmarks[idx]; if (!p) continue;
+        sumX += p.x * W; sumY += p.y * H; n++;
+      }
+      return { x: sumX / Math.max(1,n), y: sumY / Math.max(1,n) };
+    }
+
+    function calculateEyeRadius(center, landmarks, ringIndices) {
+      let total = 0, n = 0, minD = Infinity;
+      for (const idx of ringIndices) {
+        const p = landmarks[idx]; if (!p) continue;
+        const px = p.x * canvas.width, py = p.y * canvas.height;
+        const d = Math.hypot(px - center.x, py - center.y);
+        total += d; n++; if (d < minD) minD = d;
+      }
+      const avgRadius = total / Math.max(1,n);
+      const safeByRing = isFinite(minD) ? (minD * REALISM.RING_MARGIN) : avgRadius;
+      const base = Math.min(avgRadius * REALISM.SIZE_MULTIPLIER, safeByRing);
+      return Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, base));
+    }
+
+    function biasEyeCenter(centerRaw, radius, ringIndices, landmarks){
+      let ax=0, ay=0, n=0;
+      for (const idx of ringIndices){
+        const p = landmarks[idx]; if (!p) continue;
+        ax += p.x * canvas.width; ay += p.y * canvas.height; n++;
+      }
+      if (n>0){
+        const avg = { x: ax/n, y: ay/n };
+        const t = Math.max(0, Math.min(1, REALISM.CENTER_BLEND));
+        centerRaw = { x: centerRaw.x + (avg.x - centerRaw.x)*t, y: centerRaw.y + (avg.y - centerRaw.y)*t };
+      }
+      const dy = (REALISM.CENTER_Y_OFFSET||0) * (radius||0);
+      return { x: centerRaw.x, y: centerRaw.y + dy };
+    }
+
+    function ptsFromIndices(landmarks, indices){
+      const W = canvas.width, H = canvas.height;
+      const pts = [];
+      for (const i of indices){
+        const p = landmarks[i];
+        if (p) pts.push({x: p.x*W, y: p.y*H});
+      }
+      return pts;
+    }
+    function buildEyeClip(landmarks, upperIdx, lowerIdx){
+      const up = ptsFromIndices(landmarks, upperIdx);
+      const low = ptsFromIndices(landmarks, lowerIdx);
+      if (up.length < 2 || low.length < 2) return null;
+      return up.concat([...low].reverse());
+    }
+    function getEyeSide(center){
+      if (!currentEyes.left && !currentEyes.right) return null;
+      const dl = currentEyes.left ? Math.hypot(center.x-currentEyes.left.center.x, center.y-currentEyes.left.center.y) : Infinity;
+      const dr = currentEyes.right? Math.hypot(center.x-currentEyes.right.center.x, center.y-currentEyes.right.center.y) : Infinity;
+      return (dl <= dr) ? 'left' : 'right';
+    }
+    function smoothPoly(prev, next){
+      if (!next) return null;
+      if (!prev) return next;
+      const t = 1 - REALISM.SMOOTHING;
+      const m = Math.min(prev.length, next.length);
+      const out = [];
+      for (let i=0; i<m; i++){
+        const a = prev[i], b = next[i];
+        out.push({ x: a.x + (b.x - a.x)*t, y: a.y + (b.y - a.y)*t });
+      }
+      for (let i=m; i<next.length; i++) out.push(next[i]);
+      return out;
+    }
+
+    function paintEye(center, radius, color, alpha, blendMode) {
+      if (!center || !radius || radius < 3) return;
+      const r = Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, radius * REALISM.IRIS_SHRINK));
+      const S = Math.ceil(r*2 + 4);
+      ensureEyeLayersSize(S);
+
+      (function drawColor(){
+        const cx = eyeColorCtx;
+        cx.save();
+        cx.clearRect(0,0,S,S);
+        cx.translate(S/2, S/2);
+        cx.beginPath(); cx.arc(0,0,r,0,Math.PI*2); cx.closePath(); cx.clip();
+        cx.globalCompositeOperation = 'source-over';
+        cx.globalAlpha = Math.min(1, alpha);
+        cx.fillStyle = color;
+        cx.fillRect(-r, -r, r*2, r*2);
+        cx.globalCompositeOperation = 'destination-out';
+        cx.globalAlpha = 1;
+        cx.beginPath(); cx.arc(0,0, Math.max(2, r*REALISM.PUPIL_RATIO), 0, Math.PI*2); cx.fill();
+        cx.restore();
+      })();
+
+      (function drawShading(){
+        const sx = eyeShadeCtx;
+        sx.save();
+        sx.clearRect(0,0,S,S);
+        sx.translate(S/2, S/2);
+        sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.closePath(); sx.clip();
+
+        sx.globalCompositeOperation = 'source-over';
+        sx.globalAlpha = REALISM.EDGE_DARKEN * alpha;
+        let g = sx.createRadialGradient(0,0, r*0.2, 0,0, r);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(1, 'rgba(0,0,0,1)');
+        sx.fillStyle = g;
+        sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
+
+        sx.globalAlpha = REALISM.INNER_GLOW * alpha;
+        g = sx.createRadialGradient(0,0, 0, 0,0, r*0.65);
+        g.addColorStop(0, 'rgba(255,255,255,1)');
+        g.addColorStop(1, 'rgba(255,255,255,0)');
+        sx.fillStyle = g;
+        sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
+
+        sx.globalAlpha = REALISM.LIMBAL_ALPHA * alpha;
+        sx.beginPath();
+        sx.arc(0,0,r,0,Math.PI*2);
+        sx.lineWidth = Math.max(1, r * REALISM.LIMBAL_WIDTH);
+        sx.lineCap = 'round'; sx.lineJoin = 'round';
+        sx.strokeStyle = 'rgba(0,0,0,1)';
+        sx.stroke();
+
+        sx.globalAlpha = REALISM.FIBER_ALPHA * alpha;
+        sx.lineCap = 'round';
+        for (let i=0; i<REALISM.FIBER_COUNT; i++){
+          const jitter = (prand(100+i)-0.5) * REALISM.FIBER_JITTER;
+          const a = (i / REALISM.FIBER_COUNT) * Math.PI*2 + jitter;
+          const inner = r * REALISM.FIBER_INNER;
+          const outer = r * REALISM.FIBER_OUTER;
+          const x1 = Math.cos(a)*inner, y1 = Math.sin(a)*inner;
+          const x2 = Math.cos(a)*outer, y2 = Math.sin(a)*outer;
+          sx.beginPath(); sx.moveTo(x1,y1); sx.lineTo(x2,y2);
+          sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
+        }
+
+        sx.globalCompositeOperation = 'screen';
+        sx.globalAlpha = REALISM.FIBER_LIGHT_ALPHA * alpha;
+        sx.lineCap = 'round';
+        for (let i=0; i<REALISM.FIBER_COUNT; i++){
+          const jitter = (prand(1000+i)-0.5) * REALISM.FIBER_JITTER;
+          const a = (i / REALISM.FIBER_COUNT) * Math.PI*2 + jitter;
+          const inner = r * 0.252;
+          const outer = r * 0.931;
+          const x1 = Math.cos(a)*inner, y1 = Math.sin(a)*inner;
+          const x2 = Math.cos(a)*outer, y2 = Math.sin(a)*outer;
+          sx.beginPath(); sx.moveTo(x1,y1); sx.lineTo(x2,y2);
+          sx.lineWidth = 0.8; sx.strokeStyle = 'rgba(255,255,255,1)'; sx.stroke();
+        }
+
+        sx.globalCompositeOperation = 'overlay';
+        sx.globalAlpha = REALISM.BAND_ALPHA * alpha;
+        for (let b=1; b<=REALISM.BAND_COUNT; b++){
+          const t = b/(REALISM.BAND_COUNT+1);
+          sx.beginPath();
+          sx.arc(0,0, r*(0.35 + t*0.55), 0, Math.PI*2);
+          sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
+        }
+
+        sx.globalAlpha = REALISM.HIGHLIGHT_ALPHA * alpha;
+        const hlr = r * 0.5;
+        const hx = - r*REALISM.HIGHLIGHT_OFFSET;
+        const hy = - r*REALISM.HIGHLIGHT_OFFSET;
+        const grad = sx.createRadialGradient(hx, hy, hlr*0.05, hx, hy, hlr);
+        grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+        grad.addColorStop(1, 'rgba(255,255,255,0)');
+        sx.fillStyle = grad;
+        sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
+
+        sx.globalAlpha = 0.06 * alpha;
+        sx.fillStyle = sx.createPattern(noiseCanvas, 'repeat');
+        sx.fillRect(-r, -r, r*2, r*2);
+
+        sx.globalCompositeOperation = 'destination-out';
+        sx.globalAlpha = 1;
+        sx.beginPath(); sx.arc(0,0, Math.max(2, r*REALISM.PUPIL_RATIO), 0, Math.PI*2); sx.fill();
+        sx.restore();
+      })();
+
+      const sideForMask = getEyeSide(center);
+      const lidPoly = sideForMask && currentEyelids[sideForMask] ? currentEyelids[sideForMask] : null;
+      ensureMaskSize(S);
+      (function buildMask(){
+        eyeMaskCtx.save();
+        eyeMaskCtx.clearRect(0,0,S,S);
+        eyeMaskCtx.translate(S/2, S/2);
+        eyeMaskCtx.beginPath(); eyeMaskCtx.arc(0,0,r,0,Math.PI*2);
+        eyeMaskCtx.fillStyle='rgba(255,255,255,1)'; eyeMaskCtx.fill();
+        eyeMaskCtx.restore();
+
+        if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+          eyeCutCtx.save();
+          eyeCutCtx.clearRect(0,0,S,S);
+          eyeCutCtx.translate(S/2, S/2);
+          eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
+          eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+          eyeCutCtx.globalCompositeOperation = 'destination-out';
+          eyeCutCtx.beginPath();
+          eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+          for (let i=1;i<lidPoly.length;i++){
+            const p = lidPoly[i];
+            eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
+          }
+          eyeCutCtx.closePath();
+          eyeCutCtx.fill();
+          eyeCutCtx.restore();
+
+          eyeCutFeatherCtx.save();
+          eyeCutFeatherCtx.clearRect(0,0,S,S);
+          try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
+          eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
+          try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
+          eyeCutFeatherCtx.restore();
+
+          eyeMaskCtx.save();
+          eyeMaskCtx.globalCompositeOperation = 'destination-out';
+          eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+          eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
+          eyeMaskCtx.restore();
+        }
+
+        eyeMaskFeatherCtx.save();
+        try { eyeMaskFeatherCtx.filter = 'blur(1.2px)'; } catch(_) {}
+        eyeMaskFeatherCtx.drawImage(eyeMaskLayer, 0, 0);
+        try { eyeMaskFeatherCtx.filter = 'none'; } catch(_) {}
+        eyeMaskFeatherCtx.restore();
+      })();
+
+      eyeColorCtx.globalCompositeOperation = 'destination-in';
+      eyeColorCtx.drawImage(eyeMaskFeather, 0, 0);
+      eyeShadeCtx.globalCompositeOperation = 'destination-in';
+      eyeShadeCtx.drawImage(eyeMaskFeather, 0, 0);
+
+      ctx.save();
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = resolveBlendMode(blendMode);
+      ctx.drawImage(eyeColorLayer, center.x - S/2, center.y - S/2);
+
+      ctx.globalCompositeOperation = resolveBlendMode('screen');
+      ctx.globalAlpha = REALISM.FILL_BOOST_ALPHA * alpha;
+      ctx.drawImage(eyeColorLayer, center.x - S/2, center.y - S/2);
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = resolveBlendMode('overlay');
+      ctx.drawImage(eyeShadeLayer, center.x - S/2, center.y - S/2);
+      ctx.restore();
+    }
+
+    function onFaceMeshResults(results) {
+      if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
+        currentEyes = { left: null, right: null };
+        return;
+      }
+      const landmarks = results.multiFaceLandmarks[0];
+
+      const openL = leftOpenness(landmarks);
+      const openR = rightOpenness(landmarks);
+
+      const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
+      const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
+      currentEyelids.left  = smoothPoly(currentEyelids.left,  leftRawPoly);
+      currentEyelids.right = smoothPoly(currentEyelids.right, rightRawPoly);
+
+      const lerp = (a,b,t)=> a + (b-a)*t;
+
+      const leftCenterRaw  = calculateEyeCenter(landmarks, LEFT_IRIS_RING, LEFT_IRIS_CENTER);
+      const leftRadiusRaw  = calculateEyeRadius(leftCenterRaw, landmarks, LEFT_IRIS_RING);
+      const rightCenterRaw = calculateEyeCenter(landmarks, RIGHT_IRIS_RING, RIGHT_IRIS_CENTER);
+      const rightRadiusRaw = calculateEyeRadius(rightCenterRaw, landmarks, RIGHT_IRIS_RING);
+
+      function smooth(prev, next){
+        if (!prev) return next;
+        const t = 1 - REALISM.SMOOTHING;
+        return {
+          center: { x: lerp(prev.center.x, next.center.x, t), y: lerp(prev.center.y, next.center.y, t) },
+          radius: lerp(prev.radius, next.radius, t),
+          open:   clamp01((prev.open ?? next.open ?? 0) + ((next.open ?? 0) - (prev.open ?? 0)) * t)
+        };
+      }
+
+      const leftCenter = biasEyeCenter(leftCenterRaw, leftRadiusRaw, LEFT_IRIS_RING, landmarks);
+      const rightCenter = biasEyeCenter(rightCenterRaw, rightRadiusRaw, RIGHT_IRIS_RING, landmarks);
+      const leftNext  = { center: leftCenter,  radius: leftRadiusRaw,  open: openL };
+      const rightNext = { center: rightCenter, radius: rightRadiusRaw, open: openR };
+      currentEyes = {
+        left:  currentEyes.left  ? smooth(currentEyes.left,  leftNext)  : leftNext,
+        right: currentEyes.right ? smooth(currentEyes.right, rightNext) : rightNext
+      };
+    }
+
+    async function processVideoFrame() {
+      if (!running || !video.videoWidth || !video.videoHeight) {
+        if (running) animationId = requestAnimationFrame(processVideoFrame);
+        return;
+      }
+
+      updateCanvasSize();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      if (faceMesh) {
+        try { await faceMesh.send({ image: video }); } catch (_) {}
+      }
+
+      const alpha = parseInt(alphaInp.value, 10) / 100;
+      const color = colorInp.value;
+
+      if (alpha > 0 && currentEyes) {
+        const gateL = currentEyes.left  ? smoothstep(BLINK.T0, BLINK.T1, (currentEyes.left.open  ?? 0))  : 0;
+        const gateR = currentEyes.right ? smoothstep(BLINK.T0, BLINK.T1, (currentEyes.right.open ?? 0)) : 0;
+        const alphaL = alpha * gateL;
+        const alphaR = alpha * gateR;
+        if (alphaL > 0.01 && currentEyes.left)  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
+        if (alphaR > 0.01 && currentEyes.right) paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
+      }
+
+      if (running) animationId = requestAnimationFrame(processVideoFrame);
+    }
+
+    async function initializeFaceMesh() {
+      try {
+        setLoadingStatus('מאתחל זיהוי פנים');
+        if (typeof FaceMesh === 'undefined') throw new Error('MediaPipe FaceMesh לא נטען');
+
+        faceMesh = new FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+
+        faceMesh.setOptions({
+          maxNumFaces: 1,
+          refineLandmarks: true,
+          minDetectionConfidence: 0.5,
+          minTrackingConfidence: 0.5
+        });
+
+        faceMesh.onResults(onFaceMeshResults);
+        if (typeof faceMesh.initialize === 'function') await faceMesh.initialize();
+
+        return true;
+      } catch (error) {
+        setStatus('שגיאה באתחול זיהוי פנים: ' + (error.message || error), false);
+        return false;
+      }
+    }
+
+    async function startCamera() {
+      try {
+        if (!isSecureContext()) { setStatus('דרוש HTTPS או localhost לגישה למצלמה', false); return; }
+        if (!navigator.mediaDevices?.getUserMedia) { setStatus('הדפדפן לא תומך בגישה למצלמה', false); return; }
+
+        btnStartCenter.disabled = true;
+        setLoadingStatus('מבקש גישה למצלמה');
+
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user',
+            width:  { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 30, max: 60 }
+          },
+          audio: false
+        });
+
+        video.srcObject = stream;
+        await new Promise((resolve, reject) => {
+          video.onloadedmetadata = resolve;
+          video.onerror = reject;
+          setTimeout(() => reject(new Error('Timeout loading video')), 10000);
+        });
+        await video.play();
+
+        const ok = await initializeFaceMesh();
+        if (!ok) throw new Error('Failed to initialize FaceMesh');
+
+        running = true;
+
+        // הראה שהמצלמה פועלת
+        wrapEl.classList.add('camera-running');
+        btnStop.disabled = false;
+
+        setStatus('המצלמה פועלת - זיהוי פנים פעיל', true);
+        processVideoFrame();
+
+      } catch (error) {
+        let msg = 'שגיאה בהפעלת המצלמה: ';
+        if (error.name === 'NotAllowedError') msg += 'הרשאה נדחתה - יש לאפשר גישה למצלמה';
+        else if (error.name === 'NotFoundError') msg += 'מצלמה לא נמצאה במכשיר';
+        else if (error.name === 'NotReadableError') msg += 'המצלמה בשימוש או לא זמינה';
+        else msg += (error.message || 'שגיאה לא ידועה');
+
+        setStatus(msg, false);
+        btnStartCenter.disabled = false;
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        running = false;
+      }
+    }
+
+    function stopCamera() {
+      try {
+        running = false;
+        if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        video.srcObject = null;
+        currentEyes = { left: null, right: null };
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // הסתר שהמצלמה פועלת
+        wrapEl.classList.remove('camera-running');
+        wrapEl.classList.remove('palette-open');
+        btnStartCenter.disabled = false;
+        btnStop.disabled = true;
+        
+        setStatus('לחץ על "הפעל מצלמה" להתחלה');
+      } catch (_) {}
+    }
+
+    btnStartCenter.addEventListener('click', startCamera);
+    btnStop.addEventListener('click', stopCamera);
+    colorInp.addEventListener('input', () => {
+      document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
+    });
+    document.querySelectorAll('.efw-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        colorInp.value = chip.dataset.color;
+        document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        // סגירה אוטומטית של החלונית לאחר בחירת צבע
+        if (wrapEl && fabBtn && pal){
+          wrapEl.classList.remove('palette-open');
+          fabBtn.setAttribute('aria-expanded','false');
+          pal.setAttribute('aria-hidden','true');
+        }
+      });
+    });
+    alphaInp.addEventListener('input', () => { alphaVal.textContent = alphaInp.value; });
+  })();
+  </script>
+</div>
+</body>
+</html>
