@@ -403,6 +403,8 @@
         cx.restore();
       })();
 
+
+      
       (function drawShading(){
         const sx = eyeShadeCtx;
         sx.save();
@@ -491,6 +493,8 @@
 
       const sideForMask = getEyeSide(center);
       const lidPoly = sideForMask && currentEyelids[sideForMask] ? currentEyelids[sideForMask] : null;
+     
+     
       ensureMaskSize(S);
       (function buildMask(){
         eyeMaskCtx.save();
@@ -544,6 +548,46 @@
       eyeShadeCtx.drawImage(eyeMaskFeather, 0, 0);
 
       ctx.save();
+
+      // !!!
+      
+
+// // 1. Clip to the iris circle at the correct position
+// ctx.beginPath();
+// ctx.arc(center.x, center.y, r, 0, Math.PI * 2);
+// ctx.closePath();
+
+// // 2. If eyelid polygon exists, intersect with it
+// if (lidPoly && lidPoly.length >= 3) {
+//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
+//   }
+//   ctx.closePath();
+// }
+// ctx.clip();
+
+
+// Only clip with eyelid polygon (in canvas coordinates)
+
+// if (lidPoly && lidPoly.length >= 3) {
+//   ctx.save();
+//   ctx.beginPath();
+//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
+//   }
+//   ctx.closePath();
+//   ctx.strokeStyle = 'red';
+//   ctx.lineWidth = 2;
+//   ctx.stroke();
+//   ctx.restore();
+// }
+
+
+      // !!!
+
+      // Draw the iris filter layers
       ctx.globalAlpha = 1;
       ctx.globalCompositeOperation = resolveBlendMode(blendMode);
       ctx.drawImage(eyeColorLayer, center.x - S/2, center.y - S/2);
