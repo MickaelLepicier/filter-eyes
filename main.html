@@ -15,7 +15,7 @@
     @media (max-width:480px){.efw-card{padding:12px}}
     .efw-row{display:flex;flex-direction:column;gap:20px;align-items:center}
 
-    /* חלון מצלמה – גבוה לאורך */
+    /* Camera window – height and width */
     .efw-video-wrap{position:relative;width:100%;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;overflow:hidden;box-shadow:0 4px 16px rgba(0,0,0,0.2);aspect-ratio:3/4;min-height:60vh;max-height:80vh}
     @media (max-width:720px){.efw-video-wrap{min-height:70vh;max-height:85vh}}
     @media (min-width:721px){.efw-video-wrap{min-height:65vh;max-height:75vh}}
@@ -47,20 +47,20 @@
     .loading-dot:nth-child(2){animation-delay:-.16s}
     @keyframes loading{0%,80%,100%{transform:scale(0)}40%{transform:scale(1)}}
 
-    /* לוגו סטטי מעל חלון המצלמה */
+    /* Static logo above the camera window */
     .efw-logo{position:absolute;z-index:3;top:8px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:9999px;background:rgba(15,23,42,.72);color:#fff;font-weight:700;border:1px solid #0f172a;box-shadow:0 2px 8px rgba(0,0,0,.35);pointer-events:none;user-select:none;font-size:14px;line-height:1}
 
-    /* כפתור הפעלת מצלמה במרכז */
+    /* Camera activation button in the center */
     #efw-start-center{position:absolute;z-index:4;top:50%;left:50%;transform:translate(-50%,-50%);padding:16px 32px;border-radius:12px;border:none;background:#0f172a;color:#fff;font-size:18px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.3);cursor:pointer;transition:all .3s ease;opacity:1;pointer-events:auto}
     #efw-start-center:hover{background:#1e293b;transform:translate(-50%,-50%) scale(1.05)}
     #efw-start-center:active{transform:translate(-50%,-50%) scale(.98)}
     .camera-running #efw-start-center{opacity:0;pointer-events:none}
 
-    /* חלונית צבעים צפה */
+    /* Floating color panel */
     .efw-palette{position:absolute;z-index:4;top:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px}
     .efw-video-wrap.palette-open .efw-palette{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
     
-    /* כפתור צבעים צף */
+    /* Floating color button */
     #efw-fab{position:absolute;z-index:4;bottom:12px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:9999px;border:none;background:#0f172a;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;opacity:0;pointer-events:none;transition:opacity .3s ease}
     #efw-fab:hover{filter:brightness(1.05)}
     #efw-fab:active{transform:translateX(-50%) scale(.98)}
@@ -71,13 +71,13 @@
     <div class="efw-row">
       <div style="width:100%">
         <div class="efw-video-wrap">
-          <!-- לוגו סטטי קבוע בחלק העליון של חלון המצלמה -->
-          <div class="efw-logo">Kerato.Life️👁</div>
-
-          <!-- כפתור הפעלת מצלמה במרכז -->
+           <!-- Static logo fixed at the top of the camera window -->
+           <div class="efw-logo">Kerato.Life️👁</div>
+          
+           <!-- Camera launch button in the center -->
           <button id="efw-start-center" type="button">הפעל מצלמה</button>
 
-          <!-- חלונית קופצת: 16 צבעים + סליידר עוצמה -->
+          <!-- Popup: 16 colors + intensity slider -->
           <div class="efw-palette" id="efw-palette" role="dialog" aria-hidden="true">
             <div class="efw-inline" style="margin-bottom:8px">
               <input id="efw-color" class="efw-color-input" type="hidden" value="#b7a49d" aria-label="בחר צבע" />
@@ -110,7 +110,7 @@
           <canvas id="efw-canvas"></canvas>
           <video id="efw-video" playsinline autoplay muted></video>
 
-          <!-- כפתור עגול צף לפתיחה/סגירה של החלונית -->
+          <!-- Floating round button to open/close the panel -->
           <button id="efw-fab" type="button" title="בחירת צבע" aria-controls="efw-palette" aria-expanded="false">🎨</button>
         </div>
         <div id="efw-status" class="efw-status efw-small">לחץ על "הפעל מצלמה" להתחלה</div>
@@ -124,7 +124,7 @@
     'use strict';
 
     const video = document.getElementById('efw-video');
-    const canvas = document.getElementById('efw-canvas');
+    const canvas = document.getElementById('efw-canvas'); 
     const ctx = canvas.getContext('2d', { alpha: false });
     const statusEl = document.getElementById('efw-status');
 
@@ -134,7 +134,7 @@
     const alphaInp = document.getElementById('efw-alpha');
     const alphaVal = document.getElementById('efw-alpha-val');
 
-    // כפתור צף + שליטה על פתיחה/סגירה של חלונית הצבעים
+    // Floating button + control over opening/closing the color panel
     const fabBtn = document.getElementById('efw-fab');
     const wrapEl = document.querySelector('.efw-video-wrap');
     const pal = document.getElementById('efw-palette');
@@ -147,7 +147,7 @@
       });
     }
     
-    // קבוע למצב ערבוב רגיל
+    // Fixed to normal mixing mode
     const blendMode = 'source-over';
 
     let running = false;
@@ -195,11 +195,15 @@
       BLUR_PX: 1.4
     };
 
-    const BLINK = { T0: 0.14, T1: 0.22 }; // רמפה: מתחת ל-T0 נכבה, בין T0 ל-T1 דועך, מעל T1 מלא
+    // TODO fix - Maybe to fix the bug of closing eyes is here - BLINK
+    const BLINK = { T0: 0.14, T1: 0.22 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
 
     const noiseCanvas = document.createElement('canvas');
     const noiseCtx = noiseCanvas.getContext('2d');
-    noiseCanvas.width = 64; noiseCanvas.height = 64;
+
+    noiseCanvas.width = 64;
+    noiseCanvas.height = 64;
+    
     (function buildNoise(){
       const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
       for (let i=0; i<img.data.length; i+=4){
@@ -213,6 +217,7 @@
     const eyeColorCtx = eyeColorLayer.getContext('2d');
     const eyeShadeLayer = document.createElement('canvas');
     const eyeShadeCtx = eyeShadeLayer.getContext('2d');
+    
     function ensureEyeLayersSize(size){
       const s = Math.max(16, Math.ceil(size));
       if (eyeColorLayer.width !== s || eyeColorLayer.height !== s){ eyeColorLayer.width = s; eyeColorLayer.height = s; }
@@ -229,6 +234,7 @@
     const eyeCutCtx = eyeCutLayer.getContext('2d');
     const eyeCutFeather = document.createElement('canvas');
     const eyeCutFeatherCtx = eyeCutFeather.getContext('2d');
+   
     function ensureMaskSize(size){
       const s = Math.max(16, Math.ceil(size));
       if (eyeMaskLayer.width !== s || eyeMaskLayer.height !== s){ eyeMaskLayer.width = s; eyeMaskLayer.height = s; }
@@ -243,10 +249,12 @@
 
     const testCtx = document.createElement('canvas').getContext('2d');
     const BLEND_SUPPORT = {};
+
     ['multiply','screen','overlay','color','source-over','lighter'].forEach(m=>{
       try{ testCtx.globalCompositeOperation = m; BLEND_SUPPORT[m] = (testCtx.globalCompositeOperation === m); }
       catch(_){ BLEND_SUPPORT[m] = false; }
     });
+    
     function resolveBlendMode(requested){
       if (BLEND_SUPPORT[requested]) return requested;
       if (requested === 'color') return BLEND_SUPPORT['multiply'] ? 'multiply' : 'source-over';
@@ -264,6 +272,7 @@
     const RIGHT_EYE_UPPER = [386,385,384,398,263];
     const RIGHT_EYE_LOWER = [374,380,381,382,362];
 
+    // Show message to the user
     function setStatus(msg, isOk = null) {
       statusEl.textContent = msg || '';
       statusEl.className = 'efw-status efw-small';
@@ -292,9 +301,10 @@
     function dist(a,b){ return Math.hypot(a.x - b.x, a.y - b.y); }
     function pt(L,i){ return { x: L[i].x * canvas.width, y: L[i].y * canvas.height }; }
     function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
+
     function leftOpenness(L){
       const up=L[159], low=L[145], l=L[33], r=L[133];
-      if(!up||!low||!l||!r) return 1; //fallback – עדיף לא לכבות מסך במקרה מידע חסר
+      if(!up||!low||!l||!r) return 1; // Fallback – It is better not to turn off the screen in case of missing information
       return clamp01( dist(pt(L,159),pt(L,145)) / Math.max(1, dist(pt(L,33),pt(L,133))) );
     }
     function rightOpenness(L){
@@ -381,6 +391,8 @@
       return out;
     }
 
+    // TODO fix - maybe here (paintEye & drawShading) is where I can fix the bug
+    // - make the iris as is is and not always round
     function paintEye(center, radius, color, alpha, blendMode) {
       if (!center || !radius || radius < 3) return;
       const r = Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, radius * REALISM.IRIS_SHRINK));
@@ -403,8 +415,9 @@
         cx.restore();
       })();
 
-
-      
+      // Creates all the visual effects that turn a simple color circle into a "realistic eye":
+      // darkness at the edges, a black ring, fibers, rings, reflections, small noise, and a pupil in the center
+      // TODO - try to put it on comment
       (function drawShading(){
         const sx = eyeShadeCtx;
         sx.save();
@@ -435,6 +448,7 @@
         sx.strokeStyle = 'rgba(0,0,0,1)';
         sx.stroke();
 
+        // Dark fibers in the iris
         sx.globalAlpha = REALISM.FIBER_ALPHA * alpha;
         sx.lineCap = 'round';
         for (let i=0; i<REALISM.FIBER_COUNT; i++){
@@ -448,6 +462,7 @@
           sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
         }
 
+        // Illuminated fibers
         sx.globalCompositeOperation = 'screen';
         sx.globalAlpha = REALISM.FIBER_LIGHT_ALPHA * alpha;
         sx.lineCap = 'round';
@@ -462,6 +477,7 @@
           sx.lineWidth = 0.8; sx.strokeStyle = 'rgba(255,255,255,1)'; sx.stroke();
         }
 
+        // Inner rings
         sx.globalCompositeOperation = 'overlay';
         sx.globalAlpha = REALISM.BAND_ALPHA * alpha;
         for (let b=1; b<=REALISM.BAND_COUNT; b++){
@@ -471,6 +487,7 @@
           sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
         }
 
+        // Light reflection
         sx.globalAlpha = REALISM.HIGHLIGHT_ALPHA * alpha;
         const hlr = r * 0.5;
         const hx = - r*REALISM.HIGHLIGHT_OFFSET;
@@ -481,10 +498,12 @@
         sx.fillStyle = grad;
         sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
 
+        // Adds subtle "noise" so the eye doesn't look too smooth plastic
         sx.globalAlpha = 0.06 * alpha;
         sx.fillStyle = sx.createPattern(noiseCanvas, 'repeat');
         sx.fillRect(-r, -r, r*2, r*2);
 
+        // The pupil hole
         sx.globalCompositeOperation = 'destination-out';
         sx.globalAlpha = 1;
         sx.beginPath(); sx.arc(0,0, Math.max(2, r*REALISM.PUPIL_RATIO), 0, Math.PI*2); sx.fill();
@@ -496,6 +515,8 @@
      
      
       ensureMaskSize(S);
+
+      // TODO - try to put it on comment
       (function buildMask(){
         eyeMaskCtx.save();
         eyeMaskCtx.clearRect(0,0,S,S);
@@ -504,6 +525,7 @@
         eyeMaskCtx.fillStyle='rgba(255,255,255,1)'; eyeMaskCtx.fill();
         eyeMaskCtx.restore();
 
+        // Cutting by eyelid
         if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
           eyeCutCtx.save();
           eyeCutCtx.clearRect(0,0,S,S);
@@ -521,6 +543,7 @@
           eyeCutCtx.fill();
           eyeCutCtx.restore();
 
+          // Blur the edges of the eyelid cut
           eyeCutFeatherCtx.save();
           eyeCutFeatherCtx.clearRect(0,0,S,S);
           try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
@@ -528,6 +551,8 @@
           try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
           eyeCutFeatherCtx.restore();
 
+          // Add the blur layer to the mask itself - this creates a situation
+          // where the mask takes into account the closing of the eyelids
           eyeMaskCtx.save();
           eyeMaskCtx.globalCompositeOperation = 'destination-out';
           eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
@@ -535,6 +560,7 @@
           eyeMaskCtx.restore();
         }
 
+        // Another subtle blur for the entire mask
         eyeMaskFeatherCtx.save();
         try { eyeMaskFeatherCtx.filter = 'blur(1.2px)'; } catch(_) {}
         eyeMaskFeatherCtx.drawImage(eyeMaskLayer, 0, 0);
@@ -542,7 +568,8 @@
         eyeMaskFeatherCtx.restore();
       })();
 
-      eyeColorCtx.globalCompositeOperation = 'destination-in';
+      // TODO - This is where the current coloring starts, up to here I believe you can delete
+      eyeColorCtx.globalCompositeOperation = 'destination-in'; // גם הצבע וגם ההצללה יופיעו אך ורק בתוך צורת העין
       eyeColorCtx.drawImage(eyeMaskFeather, 0, 0);
       eyeShadeCtx.globalCompositeOperation = 'destination-in';
       eyeShadeCtx.drawImage(eyeMaskFeather, 0, 0);
@@ -585,6 +612,16 @@
 // }
 
 
+// if (lidPoly && lidPoly.length >= 3) {
+//   ctx.beginPath();
+//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
+//   }
+//   ctx.closePath();
+//   ctx.clip();
+// }
+
       // !!!
 
       // Draw the iris filter layers
@@ -602,13 +639,18 @@
       ctx.restore();
     }
 
+    // Get the face points from the video and calculate the eye position in each frame
     function onFaceMeshResults(results) {
+
+      // If no faces are found, reset the eye state and exit the function
       if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
         currentEyes = { left: null, right: null };
         return;
       }
+
       const landmarks = results.multiFaceLandmarks[0];
 
+      // Calculate how open the eyes are
       const openL = leftOpenness(landmarks);
       const openR = rightOpenness(landmarks);
 
@@ -619,11 +661,14 @@
 
       const lerp = (a,b,t)=> a + (b-a)*t;
 
+      // Calculate the center and radius of the iris in both eyes
       const leftCenterRaw  = calculateEyeCenter(landmarks, LEFT_IRIS_RING, LEFT_IRIS_CENTER);
       const leftRadiusRaw  = calculateEyeRadius(leftCenterRaw, landmarks, LEFT_IRIS_RING);
       const rightCenterRaw = calculateEyeCenter(landmarks, RIGHT_IRIS_RING, RIGHT_IRIS_CENTER);
       const rightRadiusRaw = calculateEyeRadius(rightCenterRaw, landmarks, RIGHT_IRIS_RING);
 
+      // Compares the current values ​​to the previous values ​​and smooths
+      // the motion so there are no "jumps" between frames
       function smooth(prev, next){
         if (!prev) return next;
         const t = 1 - REALISM.SMOOTHING;
@@ -634,38 +679,54 @@
         };
       }
 
+      // Correct the center position with a function that also takes into account slight tilts of the eye
       const leftCenter = biasEyeCenter(leftCenterRaw, leftRadiusRaw, LEFT_IRIS_RING, landmarks);
       const rightCenter = biasEyeCenter(rightCenterRaw, rightRadiusRaw, RIGHT_IRIS_RING, landmarks);
+
+      // Create the new values ​​(for the current prime) of each eye: center, radius, opening size
       const leftNext  = { center: leftCenter,  radius: leftRadiusRaw,  open: openL };
       const rightNext = { center: rightCenter, radius: rightRadiusRaw, open: openR };
+
       currentEyes = {
         left:  currentEyes.left  ? smooth(currentEyes.left,  leftNext)  : leftNext,
         right: currentEyes.right ? smooth(currentEyes.right, rightNext) : rightNext
       };
     }
 
+    // Handles video frames
     async function processVideoFrame() {
+
       if (!running || !video.videoWidth || !video.videoHeight) {
         if (running) animationId = requestAnimationFrame(processVideoFrame);
         return;
       }
 
+      // Preparing the canvas and drawing the video on it
       updateCanvasSize();
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+      // Sending the frame to the FaceMesh model
       if (faceMesh) {
         try { await faceMesh.send({ image: video }); } catch (_) {}
       }
 
+      // Retrieve color and transparency settings
       const alpha = parseInt(alphaInp.value, 10) / 100;
       const color = colorInp.value;
 
+      // Check eye condition and draw them
       if (alpha > 0 && currentEyes) {
+
+        // Calculate how long each eye is open
         const gateL = currentEyes.left  ? smoothstep(BLINK.T0, BLINK.T1, (currentEyes.left.open  ?? 0))  : 0;
         const gateR = currentEyes.right ? smoothstep(BLINK.T0, BLINK.T1, (currentEyes.right.open ?? 0)) : 0;
+
+        // Generate customized transparency
         const alphaL = alpha * gateL;
         const alphaR = alpha * gateR;
+
+        // Draws a color/effect on the pupil
         if (alphaL > 0.01 && currentEyes.left)  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
         if (alphaR > 0.01 && currentEyes.right) paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
       }
@@ -673,20 +734,24 @@
       if (running) animationId = requestAnimationFrame(processVideoFrame);
     }
 
+    // Loads and prepares the face recognition model
     async function initializeFaceMesh() {
       try {
         setLoadingStatus('מאתחל זיהוי פנים');
+
+        // If the directory does not exist, throws an error
         if (typeof FaceMesh === 'undefined') throw new Error('MediaPipe FaceMesh לא נטען');
 
+        // Creates FaceMesh, and tells it where to load the necessary files (CDN)
         faceMesh = new FaceMesh({
           locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
         });
 
         faceMesh.setOptions({
-          maxNumFaces: 1,
-          refineLandmarks: true,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
+          maxNumFaces: 1, // Recognizes the face of one person
+          refineLandmarks: true, // Higher accuracy (including pupils and lips)
+          minDetectionConfidence: 0.5, // Minimum confidence threshold for detection
+          minTrackingConfidence: 0.5 // Minimum confidence threshold for face tracking
         });
 
         faceMesh.onResults(onFaceMeshResults);
@@ -701,22 +766,29 @@
 
     async function startCamera() {
       try {
+        // Security testing and support
         if (!isSecureContext()) { setStatus('דרוש HTTPS או localhost לגישה למצלמה', false); return; }
         if (!navigator.mediaDevices?.getUserMedia) { setStatus('הדפדפן לא תומך בגישה למצלמה', false); return; }
 
+        // Update status and prepare buttons
         btnStartCenter.disabled = true;
         setLoadingStatus('מבקש גישה למצלמה');
 
+        // Request access to the camera
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: 'user',
+            facingMode: 'user', // Front camera (selfie)
+
+            // TODO fix - play here for the zoom and the size for mobile
+            // Ideal quality and frame settings
             width:  { ideal: 640, max: 1280 },
             height: { ideal: 480, max: 720 },
             frameRate: { ideal: 30, max: 60 }
           },
           audio: false
         });
-
+ 
+        // Connecting the video to the browser
         video.srcObject = stream;
         await new Promise((resolve, reject) => {
           video.onloadedmetadata = resolve;
@@ -725,12 +797,13 @@
         });
         await video.play();
 
+        // Make sure the video is loaded and the camera is working
         const ok = await initializeFaceMesh();
         if (!ok) throw new Error('Failed to initialize FaceMesh');
 
         running = true;
 
-        // הראה שהמצלמה פועלת
+        // Show that the camera is working
         wrapEl.classList.add('camera-running');
         btnStop.disabled = false;
 
@@ -751,16 +824,17 @@
       }
     }
 
+    // Turns off the camera, stops drawing loops, clears the canvas and UI
     function stopCamera() {
       try {
-        running = false;
+        running = false; // Indicates that the system is no longer running
         if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-        video.srcObject = null;
-        currentEyes = { left: null, right: null };
+        video.srcObject = null; // Clears the video source
+        currentEyes = { left: null, right: null }; // Resets eye information (no longer recognized)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // הסתר שהמצלמה פועלת
+
+        // Removes classics indicating that the camera is active or the palette is open
         wrapEl.classList.remove('camera-running');
         wrapEl.classList.remove('palette-open');
         btnStartCenter.disabled = false;
@@ -770,7 +844,8 @@
       } catch (_) {}
     }
 
-    btnStartCenter.addEventListener('click', startCamera);
+    // TODO fix - get UI from the better code and maybe put here to
+    btnStartCenter.addEventListener('click', startCamera); 
     btnStop.addEventListener('click', stopCamera);
     colorInp.addEventListener('input', () => {
       document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
@@ -780,7 +855,8 @@
         colorInp.value = chip.dataset.color;
         document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
-        // סגירה אוטומטית של החלונית לאחר בחירת צבע
+
+        // Automatically close the panel after selecting a color
         if (wrapEl && fabBtn && pal){
           wrapEl.classList.remove('palette-open');
           fabBtn.setAttribute('aria-expanded','false');
@@ -788,6 +864,8 @@
         }
       });
     });
+    
+    // Changes the text that displays the transparency value according to the slider 
     alphaInp.addEventListener('input', () => { alphaVal.textContent = alphaInp.value; });
   })();
   </script>
