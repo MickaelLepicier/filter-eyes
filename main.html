@@ -302,16 +302,25 @@
     function pt(L,i){ return { x: L[i].x * canvas.width, y: L[i].y * canvas.height }; }
     function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
 
-    function leftOpenness(L){
-      const up=L[159], low=L[145], l=L[33], r=L[133];
-      if(!up||!low||!l||!r) return 1; // Fallback – It is better not to turn off the screen in case of missing information
-      return clamp01( dist(pt(L,159),pt(L,145)) / Math.max(1, dist(pt(L,33),pt(L,133))) );
+    // !!!
+    // function leftOpenness(L){
+    //   const up=L[159], low=L[145], l=L[33], r=L[133];
+    //   if(!up||!low||!l||!r) return 1; // Fallback – It is better not to turn off the screen in case of missing information
+    //   return clamp01( dist(pt(L,159),pt(L,145)) / Math.max(1, dist(pt(L,33),pt(L,133))) );
+    // }
+    // function rightOpenness(L){
+    //   const up=L[386], low=L[374], l=L[263], r=L[362];
+    //   if(!up||!low||!l||!r) return 1;
+    //   return clamp01( dist(pt(L,386),pt(L,374)) / Math.max(1, dist(pt(L,263),pt(L,362))) );
+    // }
+    // !!!
+
+    function eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx) {
+      const up = L[upIdx], low = L[lowIdx], l = L[leftIdx], r = L[rightIdx];
+      if (!up || !low || !l || !r) return 1;
+      return clamp01(dist(pt(L, upIdx), pt(L, lowIdx)) / Math.max(1, dist(pt(L, leftIdx), pt(L, rightIdx))));
     }
-    function rightOpenness(L){
-      const up=L[386], low=L[374], l=L[263], r=L[362];
-      if(!up||!low||!l||!r) return 1;
-      return clamp01( dist(pt(L,386),pt(L,374)) / Math.max(1, dist(pt(L,263),pt(L,362))) );
-    }
+
     function smoothstep(a,b,x){ const t = Math.max(0, Math.min(1, (x - a)/(b - a))); return t*t*(3-2*t); }
 
     function calculateEyeCenter(landmarks, ringIndices, centerIdx) {
@@ -654,9 +663,15 @@
 
       const landmarks = results.multiFaceLandmarks[0];
 
+      // !!!
       // Calculate how open the eyes are
-      const openL = leftOpenness(landmarks);
-      const openR = rightOpenness(landmarks);
+      // const openL = leftOpenness(landmarks);
+      // const openR = rightOpenness(landmarks);
+      // !!!
+
+      // Calculate how open the eyes are
+      const openL = eyeOpenness(landmarks, 159, 145, 33, 133);
+      const openR = eyeOpenness(landmarks, 386, 374, 263, 362);
 
       const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
       const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
