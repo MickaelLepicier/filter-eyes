@@ -661,62 +661,35 @@
 
       // !!!
 
-      // TODO - try to put it on comment
-      // Constructing an eye mask
-      (function buildMask(){
 
-        // OPTION 1
+      // OPTION 1
+      // basic colors good with both eyes
+      // bug - when there is one eye the color is still shows 
+      // 3/10
 
-        // // Step 1 – Basic Circle Mask
-        // buildBaseMask(eyeMaskCtx, r, S);
+      // (function buildMask(){
 
-        // // Step 2 – If there are eyelids → Create an eyelid mask
-        // // Cutting by eyelid
-        // if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
-        
-        //   // eyeCutCtx.fillRect(-S/2, -S/2, S, S);
-        //   // eyeCutCtx.globalCompositeOperation = 'destination-out';
-        //   // eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+      //   // Step 1 – Basic Circle Mask
+      //   buildBaseMask(eyeMaskCtx, r, S);
 
+      //   // Step 2 – If there are eyelids → Create an eyelid mask
+      //   // Cutting by eyelid
+      //   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
 
-        //   buildEyelidMask(eyeCutCtx, lidPoly, center, S);
+      //     buildEyelidMask(eyeCutCtx, lidPoly, center, S);
 
-        //   // Add the blur layer to the mask itself - this creates a situation
-        //   // where the mask takes into account the closing of the eyelids
-        //   // eyeMaskCtx.save();
-        //   // eyeMaskCtx.globalCompositeOperation = 'destination-out';
-        //   // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
-        //   // eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
-        //   // eyeMaskCtx.restore();
+      //     // Add the blur layer to the mask itself - this creates a situation
+      //     // where the mask takes into account the closing of the eyelids
+ 
+      //     applyFeather(eyeCutFeatherCtx, eyeCutLayer, EYELID_MASK.BLUR_PX, S);
+      //   }
 
-        //   applyFeather(eyeCutFeatherCtx, eyeCutLayer, EYELID_MASK.BLUR_PX, S);
+      //   // Step 3 – Blur the overall mask
+      //   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
 
-        // }
-
-        // // Step 3 – Blur the overall mask
-        // applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+      // })();
 
 
-        // OPTION 2
-          // TODO - make the color better and without vibrations 
-
-          // 1) Base circular iris mask on eyeMaskLayer
-  eyeMaskCtx.save();
-  eyeMaskCtx.clearRect(0,0,S,S);
-  eyeMaskCtx.translate(S/2, S/2);
-  eyeMaskCtx.beginPath();
-  eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
-  eyeMaskCtx.fillStyle = '#fff';
-  eyeMaskCtx.fill();
-  eyeMaskCtx.restore();
-
-  // 2) Intersect with eyelid polygon if available
-  if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
-    // buildEyelidPath(eyeCutCtx, lidPoly, center, S);
-    // buildEyelidPath(eyeMaskCtx, lidPoly, center, S);
-    // 
-    // buildEyelidMask(eyeCutCtx, lidPoly, center, S);
-    // buildEyelidMask(eyeMaskCtx, lidPoly, center, S);
 
     // !!!!
     // row code from the good filter - 8.9
@@ -725,20 +698,76 @@
     // make it clip
     // check with Nir video of a good filter
 
-//  eyeCutCtx.save();
+
+
+// OPTION 2
+// clip colored
+// bug - when there is one eye the color is still shows 
+// bug - left eye not good
+// 6/10
+
+// (function buildMask(){
+
+//   eyeMaskCtx.save();
+//   eyeMaskCtx.clearRect(0,0,S,S);
+//   eyeMaskCtx.translate(S/2, S/2);
+//   eyeMaskCtx.beginPath();
+//   eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+//   eyeMaskCtx.fillStyle = '#fff';
+//   eyeMaskCtx.fill();
+//   eyeMaskCtx.restore();
+
+//   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+//     buildEyelidPath(eyeMaskCtx, lidPoly, center, S);
+//   }
+
+//   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+
+// })();
+
+
+// OPTION 3
+// clip colored
+// bug - left eye not good
+// bug - when there is one eye the color is still shows 
+// 5/10
+
+// (function buildMask(){
+
+//  eyeMaskCtx.save();
+//   eyeMaskCtx.clearRect(0,0,S,S);
+//   eyeMaskCtx.translate(S/2, S/2);
+//   eyeMaskCtx.beginPath();
+//   eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+//   eyeMaskCtx.fillStyle = '#fff';
+//   eyeMaskCtx.fill();
+//   eyeMaskCtx.restore();
+
+//   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+
+//        eyeCutCtx.save();
 //           eyeCutCtx.clearRect(0,0,S,S);
 //           eyeCutCtx.translate(S/2, S/2);
-//           eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
-//           eyeCutCtx.fillRect(-S/2, -S/2, S, S);
-//           eyeCutCtx.globalCompositeOperation = 'destination-out';
+
+//       // Calculates a shrink eyelid shape
+//           const shrink = (r > 0) ? Math.max(0, (r - (EYELID_MASK.MARGIN_PX||0)) / r) : 1;
+    
+//       // Starts a new path
 //           eyeCutCtx.beginPath();
-//           eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+
+//       // Draws a polygon shape
+//           eyeCutCtx.moveTo((lidPoly[0].x - center.x) * shrink, (lidPoly[0].y - center.y) * shrink);
+     
 //           for (let i=1;i<lidPoly.length;i++){
 //             const p = lidPoly[i];
-//             eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
+//             eyeCutCtx.lineTo((p.x - center.x) * shrink, (p.y - center.y) * shrink);
 //           }
 //           eyeCutCtx.closePath();
+      
+//           eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
 //           eyeCutCtx.fill();
+
+//       // Restores the previous drawing state
 //           eyeCutCtx.restore();
 
 //           eyeCutFeatherCtx.save();
@@ -749,29 +778,85 @@
 //           eyeCutFeatherCtx.restore();
 
 //           eyeMaskCtx.save();
-//           eyeMaskCtx.globalCompositeOperation = 'destination-out';
-//           eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+//           eyeMaskCtx.globalCompositeOperation = 'destination-in';
+//           eyeMaskCtx.globalAlpha = 1;
 //           eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
 //           eyeMaskCtx.restore();
 
-    // -----
-    // new code from chat
+//     }
 
-      //  eyeCutCtx.save();
+//   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+  
+//  })();
+
+
+// TODO - take this option and add clip
+// in OPTION 1 there is a good clip
+// take the code from OPTION 1 and understand it and add what I need
+
+// OPTION 4
+// basic colors good with both eyes with good shadow inside
+// bug - left eye color less good
+// bug - when there is one eye the color is still shows 
+// need clip the color
+// 8/10
+
+/*
+Step	Purpose
+1	    Create base circular mask
+2	    If eyelid active, build a cut shape
+3	    Erase that shape from mask
+4	    Blur the edges for realism
+5	    Apply to main eye mask with adjustable strength
+6	    Feather the final result
+*/
+
+      // (function buildMask(){
+
+      //   // Create a circular white mask base
+      //     eyeMaskCtx.save();
+      //     eyeMaskCtx.clearRect(0,0,S,S);
+      //     eyeMaskCtx.translate(S/2, S/2);
+      //     eyeMaskCtx.beginPath();
+      //     eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+      //     eyeMaskCtx.fillStyle = '#fff';
+      //     eyeMaskCtx.fill();
+      //     eyeMaskCtx.restore();
+
+      //   // Check if eyelid masking should happen
+      //     if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+
+      //   // Create the eyelid cut mask      
+      //     eyeCutCtx.save();
       //     eyeCutCtx.clearRect(0,0,S,S);
       //     eyeCutCtx.translate(S/2, S/2);
-      //     const shrink = (r > 0) ? Math.max(0, (r - (EYELID_MASK.MARGIN_PX||0)) / r) : 1;
+      
+      // // `````
+
+      //     // Fills canvas with white - white square background
+      //     eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
+      //     eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+
+      //     // Anything drawn erases from the existing pixels instead of painting over them.
+      //     eyeCutCtx.globalCompositeOperation = 'destination-out';
+
+      //     // Draws a polygon shape
       //     eyeCutCtx.beginPath();
-      //     eyeCutCtx.moveTo((lidPoly[0].x - center.x) * shrink, (lidPoly[0].y - center.y) * shrink);
+      //     eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+         
       //     for (let i=1;i<lidPoly.length;i++){
       //       const p = lidPoly[i];
-      //       eyeCutCtx.lineTo((p.x - center.x) * shrink, (p.y - center.y) * shrink);
+      //       eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
       //     }
       //     eyeCutCtx.closePath();
-      //     eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
       //     eyeCutCtx.fill();
+
+      // // `````
+
+      //     // Restores the previous drawing state
       //     eyeCutCtx.restore();
 
+      //     // Blur the cutout to make soft edges (feathering)
       //     eyeCutFeatherCtx.save();
       //     eyeCutFeatherCtx.clearRect(0,0,S,S);
       //     try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
@@ -779,20 +864,22 @@
       //     try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
       //     eyeCutFeatherCtx.restore();
 
+      //     // Apply that blurred mask to the main mask
       //     eyeMaskCtx.save();
-      //     eyeMaskCtx.globalCompositeOperation = 'destination-in';
-      //     eyeMaskCtx.globalAlpha = 1;
+      //     eyeMaskCtx.globalCompositeOperation = 'destination-out';
+      //     eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
       //     eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
       //     eyeMaskCtx.restore();
-    // !!!!
 
-  }
+      // //     // console.log('lala')
 
-  // 3) Optional feather of the final mask
-  applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
-  // applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 0.4, S);
+      //       }
+      //     // Apply final feathering to the mask itself
+      //     applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
 
-      })();
+      // })();
+
+
 
 
       (function drawColor(){
