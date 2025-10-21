@@ -192,6 +192,7 @@
     const EYELID_MASK = {
       ENABLED: true,
       CLIP_STRENGTH: 0.55,
+      // CLIP_STRENGTH: 0.7,
       BLUR_PX: 1.4
     };
 
@@ -610,11 +611,17 @@
           // eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
           // eyeMaskCtx.restore();
 
+
+        //  // fOne
+        // Saves the current drawing state
         ctx.save();
+
+        // Only keep the existing pixels (destination)
         ctx.globalCompositeOperation = 'destination-in';
 
-        // lidPoly = [{x,y}, ...]; center = {x,y}
+        // Starts a new drawing path (for the polygon we’re about to draw)
         ctx.beginPath();
+       
         // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
         ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
         for (let i = 1; i < lidPoly.length; i++) {
@@ -623,10 +630,124 @@
         }
         ctx.closePath();
         
+        // Fill color white
         eyeMaskCtx.fillStyle = '#fff';
+        
+        // Fills the polygon with white.
         eyeMaskCtx.fill();
+
+        // Restores the previous drawing state (undoing the composition mode and any transformations).
         eyeMaskCtx.restore();
       }
+
+      // F 1
+
+      function fOne(ctx, lidPoly, center, S){
+         //  // fOne
+        // Saves the current drawing state
+        ctx.save();
+
+        // Only keep the existing pixels (destination)
+        ctx.globalCompositeOperation = 'destination-in';
+
+        // Starts a new drawing path (for the polygon we’re about to draw)
+        ctx.beginPath();
+       
+        // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
+        ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
+        for (let i = 1; i < lidPoly.length; i++) {
+          const p = lidPoly[i];
+          ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
+        }
+        ctx.closePath();
+        
+        // Fill color white
+        eyeMaskCtx.fillStyle = '#fff';
+        
+        // Fills the polygon with white.
+        eyeMaskCtx.fill();
+
+        // Restores the previous drawing state (undoing the composition mode and any transformations).
+        eyeMaskCtx.restore();
+      }
+
+// TODO - play with what to put inside the eyeMaskCtx.globalCompositeOperation = ''
+// and there is another fTwo up on the chat
+
+// source-over
+// destination-over
+// clear
+// copy
+// 
+// destination-in
+// destination-out
+// source-in
+// source-out
+// destination-atop
+// source-atop
+
+
+      // F 2
+
+      function fTwo(ctx, lidPoly, center, S){
+ // fTwo
+        // Create the eyelid cut mask      
+          eyeCutCtx.save();
+          eyeCutCtx.clearRect(0,0,S,S);
+          eyeCutCtx.translate(S/2, S/2);
+      
+      // `````
+
+          // Fills canvas with white - white square background
+          eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
+          eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+
+          // Anything drawn erases from the existing pixels instead of painting over them.
+          eyeCutCtx.globalCompositeOperation = 'destination-out';
+
+          // Draws a polygon shape
+          eyeCutCtx.beginPath();
+          eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+         
+          for (let i=1;i<lidPoly.length;i++){
+            const p = lidPoly[i];
+            eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
+          }
+          eyeCutCtx.closePath();
+          eyeCutCtx.fill();
+
+      // `````
+
+          // Restores the previous drawing state
+          eyeCutCtx.restore();
+
+          // Blur the cutout to make soft edges (feathering)
+          eyeCutFeatherCtx.save();
+          eyeCutFeatherCtx.clearRect(0,0,S,S);
+          try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
+          eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
+          try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
+          eyeCutFeatherCtx.restore();
+
+          // Apply that blurred mask to the main mask
+          eyeMaskCtx.save();
+          eyeMaskCtx.globalCompositeOperation = 'destination-out';
+       
+          // TODO - This make the clipped polygon !!
+          // READ THE CHAT_GPT about the explanation about globalAlpha = 1.0 
+
+          // speak with Moshe and tell him what are the problems and fix them one by one 
+          
+          EYELID_MASK.CLIP_STRENGTH = 0.7;
+
+          eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+          // eyeMaskCtx.globalAlpha = 1.0;
+         
+          eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
+          eyeMaskCtx.restore();
+      }
+
+      
 
       function applyFeather(ctx, sourceCanvas, blurPx, S) {        
         ctx.save();
@@ -791,8 +912,8 @@
 
 
 // TODO - take this option and add clip
-// in OPTION 1 there is a good clip
-// take the code from OPTION 1 and understand it and add what I need
+// in OPTION 2 there is a good clip
+// take the code from OPTION 2 and understand it and add what I need
 
 // OPTION 4
 // basic colors good with both eyes with good shadow inside
@@ -811,73 +932,37 @@ Step	Purpose
 6	    Feather the final result
 */
 
-      // (function buildMask(){
+      (function buildMask(){
 
-      //   // Create a circular white mask base
-      //     eyeMaskCtx.save();
-      //     eyeMaskCtx.clearRect(0,0,S,S);
-      //     eyeMaskCtx.translate(S/2, S/2);
-      //     eyeMaskCtx.beginPath();
-      //     eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
-      //     eyeMaskCtx.fillStyle = '#fff';
-      //     eyeMaskCtx.fill();
-      //     eyeMaskCtx.restore();
+        
+        // Create a circular white mask base
+          eyeMaskCtx.save();
+          eyeMaskCtx.clearRect(0,0,S,S);
+          eyeMaskCtx.translate(S/2, S/2);
+          eyeMaskCtx.beginPath();
 
-      //   // Check if eyelid masking should happen
-      //     if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+          // create a circular base mask
+          eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+          eyeMaskCtx.fillStyle = '#fff';
+          eyeMaskCtx.fill();
+          
+          eyeMaskCtx.restore();
 
-      //   // Create the eyelid cut mask      
-      //     eyeCutCtx.save();
-      //     eyeCutCtx.clearRect(0,0,S,S);
-      //     eyeCutCtx.translate(S/2, S/2);
-      
-      // // `````
 
-      //     // Fills canvas with white - white square background
-      //     eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
-      //     eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+        // Check if eyelid masking should happen
+          if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
 
-      //     // Anything drawn erases from the existing pixels instead of painting over them.
-      //     eyeCutCtx.globalCompositeOperation = 'destination-out';
+            // fOne(eyeMaskCtx, lidPoly, center, S);
 
-      //     // Draws a polygon shape
-      //     eyeCutCtx.beginPath();
-      //     eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
-         
-      //     for (let i=1;i<lidPoly.length;i++){
-      //       const p = lidPoly[i];
-      //       eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
-      //     }
-      //     eyeCutCtx.closePath();
-      //     eyeCutCtx.fill();
+            fTwo(eyeCutCtx, lidPoly, center, S)
 
-      // // `````
+      //     // console.log('lala')
 
-      //     // Restores the previous drawing state
-      //     eyeCutCtx.restore();
+            }
+          // Apply final feathering to the mask itself
+          applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
 
-      //     // Blur the cutout to make soft edges (feathering)
-      //     eyeCutFeatherCtx.save();
-      //     eyeCutFeatherCtx.clearRect(0,0,S,S);
-      //     try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
-      //     eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
-      //     try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
-      //     eyeCutFeatherCtx.restore();
-
-      //     // Apply that blurred mask to the main mask
-      //     eyeMaskCtx.save();
-      //     eyeMaskCtx.globalCompositeOperation = 'destination-out';
-      //     eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
-      //     eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
-      //     eyeMaskCtx.restore();
-
-      // //     // console.log('lala')
-
-      //       }
-      //     // Apply final feathering to the mask itself
-      //     applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
-
-      // })();
+      })();
 
 
 
