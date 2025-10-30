@@ -733,15 +733,22 @@
           eyeMaskCtx.save();
           eyeMaskCtx.globalCompositeOperation = 'destination-out';
        
-          // TODO - This make the clipped polygon !!
-          // READ THE CHAT_GPT about the explanation about globalAlpha = 1.0 
+          // TODO's:
+          // speak with Batman and tell him what are the problems and fix them one by one 
+          // check what to do to make the left eye good
+          // check what makes the color in the eyes and why its not good on the left eye
 
-          // speak with Moshe and tell him what are the problems and fix them one by one 
-          
-          EYELID_MASK.CLIP_STRENGTH = 0.7;
 
-          eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
-          // eyeMaskCtx.globalAlpha = 1.0;
+          // I will change the UI
+          // then I want to check the the bug when its on my phone
+
+
+          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+         
+         
+          eyeMaskCtx.globalAlpha = 1; // good-clip bad-left eye
+
+          // eyeMaskCtx.globalAlpha = 0.9; // good-clip bad-left eye
          
           eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
           eyeMaskCtx.restore();
@@ -1212,13 +1219,18 @@ Step	Purpose
             width:  { ideal: 640, max: 1280 },
             height: { ideal: 480, max: 720 },
             frameRate: { ideal: 30, max: 60 }
-            // width:  { ideal: 2480, max: 4480 },
-            // height: { ideal: 1920, max: 2840 },
-            // frameRate: { ideal: 30, max: 60 }
+
+          // aspectRatio: { ideal: 9 / 16 },
+          // width:  { ideal: 1080 },
+          // height: { ideal: 1920 },
+
           },
           audio: false
-        });
+        }
+      );
  
+
+
         // Connecting the video to the browser
         video.srcObject = stream;
         await new Promise((resolve, reject) => {
