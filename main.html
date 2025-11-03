@@ -57,14 +57,35 @@
     .camera-running #efw-start-center{opacity:0;pointer-events:none}
 
     /* Floating color panel */
-    .efw-palette{position:absolute;z-index:4;top:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px}
+    /*I can change the background and layout for the colors btns */ 
+    /* .efw-palette{position:absolute;z-index:4;top:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:transparent;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px} */
+    
+    .efw-palette{position:absolute;z-index:4;bottom:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:transparent;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px}
+    
     .efw-video-wrap.palette-open .efw-palette{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
     
     /* Floating color button */
-    #efw-fab{position:absolute;z-index:4;bottom:12px;left:50%;transform:translateX(-50%);width:56px;height:56px;border-radius:9999px;border:none;background:#0f172a;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;opacity:0;pointer-events:none;transition:opacity .3s ease}
+    #efw-fab{position:absolute;z-index:4;bottom:40px;left:45%;transform:translateX(-50%);width:56px;height:56px;border-radius:9999px;border:none;background:#0f172a;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;opacity:0;pointer-events:none;transition:opacity .3s ease}
     #efw-fab:hover{filter:brightness(1.05)}
     #efw-fab:active{transform:translateX(-50%) scale(.98)}
     .camera-running #efw-fab{opacity:1;pointer-events:auto}
+
+    
+    /* Start updated UI */
+
+    /* Floating print button */
+    #efw-capture{position:absolute;z-index:4;bottom:40px;left:calc(45% + 72px);transform:translateX(-50%);width:56px;height:56px;border-radius:9999px;border:none;background:#0f172a;color:#fff;box-shadow:0 8px 18px rgba(0,0,0,.22);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:22px;opacity:0;pointer-events:none;transition:opacity .3s ease}
+    #efw-capture:hover{filter:brightness(1.05)}
+    #efw-capture:active{transform:translateX(-50%) scale(.98)}
+    .camera-running #efw-capture{opacity:1;pointer-events:auto}
+    .efw-video-wrap.palette-open #efw-capture{opacity:0;pointer-events:none}
+
+    /* Color name tag bottom*/
+    .efw-color-tag{position:absolute;z-index:4;bottom:6px;left:50%;transform:translateX(-50%);padding:6px 12px;border-radius:9999px;background:rgba(15,23,42,.72);color:#fff;font-weight:700;font-size:12px;line-height:1;border:1px solid rgba(255,255,255,.18);box-shadow:0 2px 8px rgba(0,0,0,.25);backdrop-filter:saturate(120%) blur(4px);-webkit-backdrop-filter:saturate(120%) blur(4px);pointer-events:none;opacity:1;transition:opacity .2s ease}
+    .efw-video-wrap.palette-open .efw-color-tag{opacity:0}
+
+    /* End updated UI */
+
   </style>
 
   <div class="efw-card">
@@ -81,7 +102,7 @@
           <div class="efw-palette" id="efw-palette" role="dialog" aria-hidden="true">
             <div class="efw-inline" style="margin-bottom:8px">
               <input id="efw-color" class="efw-color-input" type="hidden" value="#b7a49d" aria-label="בחר צבע" />
-              <div class="efw-inline">
+              <!-- <div class="efw-inline">
                 <div class="efw-chip active" data-color="#C8A89E" title="Dune" style="background:#C8A89E"></div>
                 <div class="efw-chip" data-color="#8C5B3B" title="Sand ER19D" style="background:#8C5B3B"></div>
                 <div class="efw-chip" data-color="#B8912E" title="Honey Gold" style="background:#B8912E"></div>
@@ -98,6 +119,24 @@
                 <div class="efw-chip" data-color="#8DB5E0" title="Azur" style="background:#8DB5E0"></div>
                 <div class="efw-chip" data-color="#D4D9E8" title="Polar Grey" style="background:#D4D9E8"></div>
                 <div class="efw-chip" data-color="#AFAFB9" title="Pearl" style="background:#AFAFB9"></div>
+              </div> -->
+                <div class="efw-inline">
+                <div class="efw-chip active" data-color="#b7a49d" title="Dune" style="background:#b7a49d"></div>
+                <div class="efw-chip" data-color="#79655a" title="Sand ER19D" style="background:#79655a"></div>
+                <div class="efw-chip" data-color="#947d51" title="Honey Gold" style="background:#947d51"></div>
+                <div class="efw-chip" data-color="#947d51" title="Sahara" style="background:#947d51"></div>
+                <div class="efw-chip" data-color="#998a69" title="Tropical" style="background:#998a69"></div>
+                <div class="efw-chip" data-color="#8e9988" title="Savana" style="background:#8e9988"></div>
+                <div class="efw-chip" data-color="#657960" title="Pistache CT88" style="background:#657960"></div>
+                <div class="efw-chip" data-color="#abc0ad" title="Jade" style="background:#abc0ad"></div>
+                <div class="efw-chip" data-color="#d5e4df" title="Arctique" style="background:#d5e4df"></div>
+                <div class="efw-chip" data-color="#a1bccf" title="Green Water" style="background:#a1bccf"></div>
+                <div class="efw-chip" data-color="#9bacbe" title="Turquoise" style="background:#9bacbe"></div>
+                <div class="efw-chip" data-color="#8298c7" title="New Blue" style="background:#8298c7"></div>
+                <div class="efw-chip" data-color="#7785a8" title="Pacific" style="background:#7785a8"></div>
+                <div class="efw-chip" data-color="#c4d5ff" title="Azur" style="background:#c4d5ff"></div>
+                <div class="efw-chip" data-color="#e6ebff" title="Polar Grey" style="background:#e6ebff"></div>
+                <div class="efw-chip" data-color="#aeb2bd" title="Pearl" style="background:#aeb2bd"></div>
               </div>
             </div>
             <div>
@@ -112,6 +151,15 @@
 
           <!-- Floating round button to open/close the panel -->
           <button id="efw-fab" type="button" title="בחירת צבע" aria-controls="efw-palette" aria-expanded="false">🎨</button>
+        
+          <!--  Start updated UI  -->
+
+          <!-- Button to capture pictures -->
+          <button id="efw-capture" type="button" title="צילום" aria-label="צילום">📸</button>
+          <div id="efw-color-tag" class="efw-color-tag" aria-live="polite"></div>
+        
+          <!--  End updated UI  -->
+      
         </div>
         <div id="efw-status" class="efw-status efw-small">לחץ על "הפעל מצלמה" להתחלה</div>
         <button id="efw-stop" class="efw-btn sec" disabled style="margin-top:16px;padding:14px 32px">עצור מצלמה</button>
@@ -122,6 +170,8 @@
   <script>
   (function(){
     'use strict';
+
+    // const TARGET_ASPECT = 9 / 16; // יחס יעד: 9:16
 
     const video = document.getElementById('efw-video');
     const canvas = document.getElementById('efw-canvas'); 
@@ -138,7 +188,62 @@
     const fabBtn = document.getElementById('efw-fab');
     const wrapEl = document.querySelector('.efw-video-wrap');
     const pal = document.getElementById('efw-palette');
+    const btnCapture = document.getElementById('efw-capture');
+   
+   // Start Color Tag
+    const colorTag = document.getElementById('efw-color-tag');
+
+
+    function clamp(v, min, max){ return v < min ? min : (v > max ? max : v); }
     
+    function hexToRgb(hex){
+      if (!hex) return {r: 183, g: 164, b: 157};
+      let h = hex.trim().replace('#','');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const num = parseInt(h, 16);
+      if (Number.isNaN(num)) return {r: 183, g: 164, b: 157};
+      return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+    }
+
+    function rgbToHex(r,g,b){
+      const toHex = (n)=> clamp(Math.round(n),0,255).toString(16).padStart(2,'0');
+      return '#' + toHex(r) + toHex(g) + toHex(b);
+    }
+
+    function darkenHex(hex, amount){
+      const {r,g,b} = hexToRgb(hex);
+      return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
+    }
+
+    function setWrapBgFromColor(hex){
+      if (!wrapEl) return;
+      const c1 = darkenHex(hex, 0.40);
+      const c2 = darkenHex(hex, 0.70);
+      wrapEl.style.background = `linear-gradient(135deg, ${c2}, ${c1})`;
+    }
+
+    function getSelectedChip(){
+      const active = document.querySelector('.efw-chip.active');
+      if (active) return active;
+      const chips = document.querySelectorAll('.efw-chip');
+      const val = (colorInp.value||'').toLowerCase();
+      for (const ch of chips){ if ((ch.dataset.color||'').toLowerCase() === val) return ch; }
+      return null;
+    }
+    
+    function updateColorTag(){
+      if (!colorTag) return;
+      const chip = getSelectedChip();
+      const name = (chip && (chip.getAttribute('title') || (chip.textContent||'').trim())) || (colorInp.value||'');
+      colorTag.textContent = name;
+    }
+
+    // הפעלה ראשונית לפי ברירת המחדל
+    setWrapBgFromColor(colorInp.value);
+    updateColorTag();
+    
+   // End Color Tag
+
     if (fabBtn && wrapEl && pal){
       fabBtn.addEventListener('click', ()=>{
         const isOpen = wrapEl.classList.toggle('palette-open');
@@ -146,6 +251,8 @@
         pal.setAttribute('aria-hidden', String(!isOpen));
       });
     }
+
+
     
     // Fixed to normal mixing mode
     const blendMode = 'source-over';
@@ -765,7 +872,7 @@
         try { ctx.filter = 'none'; } catch (_) {}
       }
       
-      // ---
+ 
 
 
   // function buildEyelidPath(ctx, lidPoly, center, S) {
@@ -1292,12 +1399,17 @@ Step	Purpose
     btnStop.addEventListener('click', stopCamera);
     colorInp.addEventListener('input', () => {
       document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
+      setWrapBgFromColor(colorInp.value);
+      updateColorTag();
     });
+
     document.querySelectorAll('.efw-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         colorInp.value = chip.dataset.color;
         document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
         chip.classList.add('active');
+        setWrapBgFromColor(colorInp.value);
+        updateColorTag();
 
         // Automatically close the panel after selecting a color
         if (wrapEl && fabBtn && pal){
@@ -1310,6 +1422,37 @@ Step	Purpose
     
     // Changes the text that displays the transparency value according to the slider 
     alphaInp.addEventListener('input', () => { alphaVal.textContent = alphaInp.value; });
+ 
+    
+    //  Start updated UI 
+  
+    function snapshotAndDownload(){
+      try{
+        const pad = (n)=> String(n).padStart(2,'0');
+        const d = new Date();
+        const fname = `eye-filter-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`;
+        if (canvas.toBlob){
+          canvas.toBlob((blob)=>{
+            if(!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fname; document.body.appendChild(a);
+            a.click();
+            setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+          }, 'image/png');
+        } else {
+          const url = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = url; a.download = fname; document.body.appendChild(a);
+          a.click(); a.remove();
+        }
+      }catch(err){
+        setStatus('שגיאה בצילום/הורדה', false);
+      }
+    }
+    if (btnCapture){ btnCapture.addEventListener('click', snapshotAndDownload); }
+ //  End updated UI  
+
   })();
   </script>
 </div>
