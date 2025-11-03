@@ -23,7 +23,7 @@
     #efw-canvas{width:100%;height:100%;display:block;border-radius:12px;object-fit:contain}
     video#efw-video{position:absolute;top:0;left:0;width:100%;height:100%;object-fit:contain;opacity:0;pointer-events:none}
     .efw-label{display:block;font-size:14px;color:#1e293b;margin-bottom:8px;font-weight:600}
-    .efw-inline{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+    .efw-inline{display:flex;gap:10px;align-items:center;justify-content: center;flex-wrap:wrap}
 
     /* \u05db\u05e4\u05ea\u05d5\u05e8\u05d9 \u05e6\u05d1\u05e2: \u05de\u05e2\u05d5\u05d2\u05d9\u05dd \u05dc\u05d0\u05dc\u05d9\u05e4\u05e1\u05d4 \u05d0\u05d5\u05d1\u05dc\u05d9\u05ea (pill) \u05d5\u05de\u05e6\u05d9\u05d2\u05d9\u05dd \u05d0\u05ea \u05e9\u05dd \u05d4\u05e6\u05d1\u05e2 \u05de-attr(title) */
     .efw-chip{display:inline-flex;align-items:center;justify-content:center;height:34px;min-width:96px;padding:0 14px;border-radius:9999px;border:2px solid #cbd5e1;cursor:pointer;transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;box-shadow:0 2px 4px rgba(0,0,0,.1);white-space:nowrap;font-size:12px;font-weight:700;line-height:1;color:#fff;text-shadow:0 1px 1px rgba(0,0,0,.35)}
@@ -57,10 +57,7 @@
     .camera-running #efw-start-center{opacity:0;pointer-events:none}
 
     /* Floating color panel */
-    /*I can change the background and layout for the colors btns */ 
-    /* .efw-palette{position:absolute;z-index:4;top:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:transparent;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px} */
-    
-    .efw-palette{position:absolute;z-index:4;bottom:46px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:transparent;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px}
+    .efw-palette{position:absolute;z-index:4;bottom:70px;left:50%;transform:translate(-50%,-8px) scale(.98);opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease;background:transparent;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.15);width:min(92%,520px);padding:12px}
     
     .efw-video-wrap.palette-open .efw-palette{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto}
     
