@@ -325,6 +325,7 @@
     // TODO - here are some shadows. check if the shadows are created here
     // CHECK MORE OPTIONS THAT CREATE THE SHADOWS AND COMMENT THEM TO CHECK IF ITS WORKING
     
+
     // shadows & lighting
     const eyeColorLayer = document.createElement('canvas');
     // iris color
@@ -846,12 +847,12 @@
           eyeCutFeatherCtx.clearRect(0,0,S,S);
           
           // making 2 shadows 
-          // try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
+          try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
 
-          // TODO if I delete this so no shadow, but no clip...
-          // eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
-          // try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
-          // eyeCutFeatherCtx.restore();
+          // // TODO if I delete this so no shadow, but no clip...
+          eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
+          try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
+          eyeCutFeatherCtx.restore();
 
 
           // 3️⃣ Apply to the mask — this part clips the color filter
@@ -1057,10 +1058,18 @@ Step	Purpose
 6	    Feather the final result
 */
 
+      // TODOs:
+      // make the file into 3 files - html, css and js
+      // TODO - at the end when I finish compress the files like in vit - minifite 
 
+        
       (function buildMask(){
 
         
+        // here it create cirlce maks, I can add if (the eye small clip it, ) - עדיף לעשות יחס, כדי 
+        // 
+        // cosinus and sinus function
+
         // Create a circular white mask base
           eyeMaskCtx.save();
           eyeMaskCtx.clearRect(0,0,S,S);
@@ -1068,7 +1077,8 @@ Step	Purpose
           eyeMaskCtx.beginPath();
 
           // create a circular base mask
-          eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+          // TODO - add if openL > 0.3 draw circle else clip it
+          eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2); // make it circle
           eyeMaskCtx.fillStyle = '#fff';
           eyeMaskCtx.fill();
           
@@ -1205,6 +1215,7 @@ Step	Purpose
       // Calculate how open the eyes are
       const openL = eyeOpenness(landmarks, 159, 145, 33, 133);
       const openR = eyeOpenness(landmarks, 386, 374, 263, 362);
+
 
       const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
       const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
