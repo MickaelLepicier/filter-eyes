@@ -1,0 +1,1328 @@
+(function(){
+    'use strict';
+
+// TODOs:
+// write what is the BUG:
+// BUG 1 -> good clip, bad shadows
+// or
+// BUG 2 -> good color, bad clip
+
+// check what the mesh-face libarary can do - 1 hour:
+
+// In this code I use the Attention Mesh Model that use more power but more accurate - refine_landmarks 
+
+// FOR TODAY - read the article as the ChatGPT suggest 
+
+// check the flow of the code - 2 hours
+// check how can I put the color filter without the shadows and with clipping
+
+// at the end compress this code that in HTML with js and css files
+
+
+    // const TARGET_ASPECT = 9 / 16; // יחס יעד: 9:16
+
+    const video = document.getElementById('efw-video');
+    const canvas = document.getElementById('efw-canvas'); 
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const statusEl = document.getElementById('efw-status');
+
+    const btnStartCenter = document.getElementById('efw-start-center');
+    const btnStop  = document.getElementById('efw-stop');
+    const colorInp = document.getElementById('efw-color');
+    const alphaInp = document.getElementById('efw-alpha');
+    const alphaVal = document.getElementById('efw-alpha-val');
+
+    // Floating button + control over opening/closing the color panel
+    const fabBtn = document.getElementById('efw-fab');
+    const wrapEl = document.querySelector('.efw-video-wrap');
+    const pal = document.getElementById('efw-palette');
+    const btnCapture = document.getElementById('efw-capture');
+   
+   // Start Color Tag
+    const colorTag = document.getElementById('efw-color-tag');
+
+
+    function clamp(v, min, max){ return v < min ? min : (v > max ? max : v); }
+    
+    function hexToRgb(hex){
+      if (!hex) return {r: 183, g: 164, b: 157};
+      let h = hex.trim().replace('#','');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const num = parseInt(h, 16);
+      if (Number.isNaN(num)) return {r: 183, g: 164, b: 157};
+      return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
+    }
+
+    function rgbToHex(r,g,b){
+      const toHex = (n)=> clamp(Math.round(n),0,255).toString(16).padStart(2,'0');
+      return '#' + toHex(r) + toHex(g) + toHex(b);
+    }
+
+    function darkenHex(hex, amount){
+      const {r,g,b} = hexToRgb(hex);
+      return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
+    }
+
+    function setWrapBgFromColor(hex){
+      if (!wrapEl) return;
+      const c1 = darkenHex(hex, 0.40);
+      const c2 = darkenHex(hex, 0.70);
+      wrapEl.style.background = `linear-gradient(135deg, ${c2}, ${c1})`;
+    }
+
+    function getSelectedChip(){
+      const active = document.querySelector('.efw-chip.active');
+      if (active) return active;
+      const chips = document.querySelectorAll('.efw-chip');
+      const val = (colorInp.value||'').toLowerCase();
+      for (const ch of chips){ if ((ch.dataset.color||'').toLowerCase() === val) return ch; }
+      return null;
+    }
+    
+    function updateColorTag(){
+      if (!colorTag) return;
+      const chip = getSelectedChip();
+      const name = (chip && (chip.getAttribute('title') || (chip.textContent||'').trim())) || (colorInp.value||'');
+      colorTag.textContent = name;
+    }
+
+    // הפעלה ראשונית לפי ברירת המחדל
+    setWrapBgFromColor(colorInp.value);
+    updateColorTag();
+    
+   // End Color Tag
+
+    if (fabBtn && wrapEl && pal){
+      fabBtn.addEventListener('click', ()=>{
+        const isOpen = wrapEl.classList.toggle('palette-open');
+        fabBtn.setAttribute('aria-expanded', String(isOpen));
+        pal.setAttribute('aria-hidden', String(!isOpen));
+      });
+    }
+
+
+    
+    // Fixed to normal mixing mode
+    const blendMode = 'source-over';
+
+    let running = false;
+    let stream = null;
+    let faceMesh = null;
+    let animationId = null;
+    let currentEyes = { left: null, right: null };
+    let currentEyelids = { left: null, right: null };
+
+    const REALISM = {
+      SIZE_MULTIPLIER: 0.92,
+      MIN_RADIUS: 6,
+      MAX_RADIUS: 36,
+      IRIS_SHRINK: 0.90,
+      RING_MARGIN: 0.92,
+      PUPIL_RATIO: 0.32,
+      LIMBAL_WIDTH: 0.18, // Control the limbal ring (dark ring around the iris)
+      LIMBAL_ALPHA: 0.55, // Control the limbal ring (dark ring around the iris)
+      // LIMBAL_ALPHA: 0.25, 
+      HIGHLIGHT_ALPHA: 0.35, // Light reflection on the cornea
+      HIGHLIGHT_OFFSET: 0.28, // Light reflection on the cornea
+      FIBER_COUNT: 36, 
+      FIBER_ALPHA: 0.14, // Affect iris texture contrast
+      // FIBER_ALPHA: 0.08,
+      FIBER_INNER: 0.28,
+      FIBER_OUTER: 0.95,
+      EDGE_DARKEN: 0.25, // Darkens the outer edge of the iris
+      // EDGE_DARKEN: 0.08,
+      INNER_GLOW: 0.20, // Adds a subtle bright ring inside the iris
+      SMOOTHING: 0.35,
+      CENTER_BLEND: 0.6, // Controls how the pupil blends with the iris
+      CENTER_Y_OFFSET: -0.06, // Slightly shifts the iris center
+      FIBER_JITTER: 0.06,
+      FIBER_LIGHT_ALPHA: 0.06, // Affect iris texture contrast
+      FIBER_CLEAR_COUNT: 0,
+      FIBER_CLEAR_ALPHA: 0,
+      FIBER_CLEAR_THICKNESS: 0.5,
+      FIBER_CLEAR_INNER: 0.20,
+      FIBER_CLEAR_OUTER: 0.97,
+      BAND_COUNT: 4,
+      BAND_ALPHA: 0.06, // Adds concentric darker bands
+      FILL_BOOST_ALPHA: 0.12
+    };
+
+    const EYELID_MASK = {
+      ENABLED: true,
+      CLIP_STRENGTH: 0.55,
+      // CLIP_STRENGTH: 0.7,
+      BLUR_PX: 1.4
+    };
+
+    // TODO fix - Maybe to fix the bug of closing eyes is here - BLINK
+    const BLINK = { T0: 0.14, T1: 0.22 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
+
+    const noiseCanvas = document.createElement('canvas');
+    const noiseCtx = noiseCanvas.getContext('2d');
+
+    noiseCanvas.width = 64;
+    noiseCanvas.height = 64;
+    
+    (function buildNoise(){
+      const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
+      for (let i=0; i<img.data.length; i+=4){
+        const v = 120 + Math.floor(Math.random()*16);
+        img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 10;
+      }
+      noiseCtx.putImageData(img, 0, 0);
+    })();
+
+
+    // TODO - here are some shadows. check if the shadows are created here
+    // CHECK MORE OPTIONS THAT CREATE THE SHADOWS AND COMMENT THEM TO CHECK IF ITS WORKING
+    
+
+    // shadows & lighting
+    const eyeColorLayer = document.createElement('canvas');
+    // iris color
+    const eyeColorCtx = eyeColorLayer.getContext('2d');
+    // visible area mask
+    const eyeShadeLayer = document.createElement('canvas');
+    // combines all of them
+    const eyeShadeCtx = eyeShadeLayer.getContext('2d');
+    
+    function ensureEyeLayersSize(size){
+      const s = Math.max(16, Math.ceil(size));
+      if (eyeColorLayer.width !== s || eyeColorLayer.height !== s){ eyeColorLayer.width = s; eyeColorLayer.height = s; }
+      if (eyeShadeLayer.width !== s || eyeShadeLayer.height !== s){ eyeShadeLayer.width = s; eyeShadeLayer.height = s; }
+      eyeColorCtx.clearRect(0,0,s,s);
+      eyeShadeCtx.clearRect(0,0,s,s);
+    }
+
+    // Base circular mask for eye color
+    const eyeMaskLayer = document.createElement('canvas'); // Creates a canvas element to store the base iris mask (white circle representing the eye boundary)
+    // Draws + clips the main mask
+    const eyeMaskCtx = eyeMaskLayer.getContext('2d'); // Gets the 2D drawing context for the eyeMaskLayer to draw on it
+
+    // Blurred copy of main mask
+    const eyeMaskFeather = document.createElement('canvas'); // Creates a canvas for a blurred/feathered version of the iris mask for smooth edges
+    // Blurs the main mask
+    const eyeMaskFeatherCtx = eyeMaskFeather.getContext('2d'); // Gets the 2D drawing context for the eyeMaskFeather to apply blur effects
+
+    // Eyelid cutout (white with transparent hole)
+    const eyeCutLayer = document.createElement('canvas'); // Creates a canvas to store the eyelid shape that will be subtracted/cut from the iris
+    // Draws and erases eyelid shape
+    const eyeCutCtx = eyeCutLayer.getContext('2d'); // Gets the 2D drawing context for the eyeCutLayer to draw the eyelid polygon
+
+    // Blurred eyelid mask
+    const eyeCutFeather = document.createElement('canvas'); // Creates a canvas for a blurred version of the eyelid cutout for smooth transitions
+    // Blurs eyelid mask edges
+    const eyeCutFeatherCtx = eyeCutFeather.getContext('2d'); // Gets the 2D drawing context for the eyeCutFeather to apply blur effects to the eyelid mask
+
+    function ensureMaskSize(size){
+      const s = Math.max(16, Math.ceil(size));
+      if (eyeMaskLayer.width !== s || eyeMaskLayer.height !== s){ eyeMaskLayer.width = s; eyeMaskLayer.height = s; }
+      if (eyeMaskFeather.width !== s || eyeMaskFeather.height !== s){ eyeMaskFeather.width = s; eyeMaskFeather.height = s; }
+      if (eyeCutLayer.width !== s || eyeCutLayer.height !== s){ eyeCutLayer.width = s; eyeCutLayer.height = s; }
+      if (eyeCutFeather.width !== s || eyeCutFeather.height !== s){ eyeCutFeather.width = s; eyeCutFeather.height = s; }
+      eyeMaskCtx.clearRect(0,0,s,s);
+      eyeMaskFeatherCtx.clearRect(0,0,s,s);
+      eyeCutCtx.clearRect(0,0,s,s);
+      eyeCutFeatherCtx.clearRect(0,0,s,s);
+    }
+
+    const testCtx = document.createElement('canvas').getContext('2d');
+    const BLEND_SUPPORT = {};
+
+    ['multiply','screen','overlay','color','source-over','lighter'].forEach(m=>{
+      try{ testCtx.globalCompositeOperation = m; BLEND_SUPPORT[m] = (testCtx.globalCompositeOperation === m); }
+      catch(_){ BLEND_SUPPORT[m] = false; }
+    });
+    
+    function resolveBlendMode(requested){
+      if (BLEND_SUPPORT[requested]) return requested;
+      if (requested === 'color') return BLEND_SUPPORT['multiply'] ? 'multiply' : 'source-over';
+      if (requested === 'overlay') return BLEND_SUPPORT['multiply'] ? 'multiply' : 'source-over';
+      if (requested === 'screen') return BLEND_SUPPORT['lighter'] ? 'lighter' : 'source-over';
+      return 'source-over';
+    }
+
+    const LEFT_IRIS_RING = [468,469,470,471];
+    const LEFT_IRIS_CENTER = 472;
+    const RIGHT_IRIS_RING = [473,474,475,476];
+    const RIGHT_IRIS_CENTER = 477;
+    const LEFT_EYE_UPPER = [159,158,157,173,133];
+    const LEFT_EYE_LOWER = [145,144,163,7,33];
+    const RIGHT_EYE_UPPER = [386,385,384,398,263];
+    const RIGHT_EYE_LOWER = [374,380,381,382,362];
+
+    // Show message to the user
+    function setStatus(msg, isOk = null) {
+      statusEl.textContent = msg || '';
+      statusEl.className = 'efw-status efw-small';
+      if (isOk === true)  statusEl.className += ' efw-status-ok';
+      if (isOk === false) statusEl.className += ' efw-status-bad';
+    }
+    function setLoadingStatus(msg) {
+      statusEl.innerHTML = msg + ' <span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>';
+      statusEl.className = 'efw-status efw-small';
+    }
+    function isSecureContext() {
+      return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    }
+    function updateCanvasSize() {
+      const w = video.videoWidth || 640;
+      const h = video.videoHeight || 480;
+      if (canvas.width !== w || canvas.height !== h) {
+        canvas.width = w; canvas.height = h;
+      }
+    }
+
+    function fract(x){ return x - Math.floor(x); }
+    function prand(seed){ return fract(Math.sin(seed*12.9898)*43758.5453); }
+
+    // Blink/openness helpers
+    function dist(a,b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+    function pt(L,i){ return { x: L[i].x * canvas.width, y: L[i].y * canvas.height }; }
+    function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
+
+    // !!!
+    // function leftOpenness(L){
+    //   const up=L[159], low=L[145], l=L[33], r=L[133];
+    //   if(!up||!low||!l||!r) return 1; // Fallback – It is better not to turn off the screen in case of missing information
+    //   return clamp01( dist(pt(L,159),pt(L,145)) / Math.max(1, dist(pt(L,33),pt(L,133))) );
+    // }
+    // function rightOpenness(L){
+    //   const up=L[386], low=L[374], l=L[263], r=L[362];
+    //   if(!up||!low||!l||!r) return 1;
+    //   return clamp01( dist(pt(L,386),pt(L,374)) / Math.max(1, dist(pt(L,263),pt(L,362))) );
+    // }
+    // !!!
+
+    function eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx) {
+      const up = L[upIdx], low = L[lowIdx], l = L[leftIdx], r = L[rightIdx];
+      if (!up || !low || !l || !r) return 1;
+      return clamp01(dist(pt(L, upIdx), pt(L, lowIdx)) / Math.max(1, dist(pt(L, leftIdx), pt(L, rightIdx))));
+    }
+
+    function smoothstep(a,b,x){ const t = Math.max(0, Math.min(1, (x - a)/(b - a))); return t*t*(3-2*t); }
+
+    function calculateEyeCenter(landmarks, ringIndices, centerIdx) {
+      const W = canvas.width, H = canvas.height;
+      if (Number.isInteger(centerIdx) && landmarks[centerIdx]) {
+        return { x: landmarks[centerIdx].x * W, y: landmarks[centerIdx].y * H };
+      }
+      let sumX = 0, sumY = 0, n = 0;
+      for (const idx of ringIndices) {
+        const p = landmarks[idx]; if (!p) continue;
+        sumX += p.x * W; sumY += p.y * H; n++;
+      }
+      return { x: sumX / Math.max(1,n), y: sumY / Math.max(1,n) };
+    }
+
+    function calculateEyeRadius(center, landmarks, ringIndices) {
+      let total = 0, n = 0, minD = Infinity;
+      for (const idx of ringIndices) {
+        const p = landmarks[idx]; if (!p) continue;
+        const px = p.x * canvas.width, py = p.y * canvas.height;
+        const d = Math.hypot(px - center.x, py - center.y);
+        total += d; n++; if (d < minD) minD = d;
+      }
+      const avgRadius = total / Math.max(1,n);
+      const safeByRing = isFinite(minD) ? (minD * REALISM.RING_MARGIN) : avgRadius;
+      const base = Math.min(avgRadius * REALISM.SIZE_MULTIPLIER, safeByRing);
+      return Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, base));
+    }
+
+    function biasEyeCenter(centerRaw, radius, ringIndices, landmarks){
+      let ax=0, ay=0, n=0;
+      for (const idx of ringIndices){
+        const p = landmarks[idx]; if (!p) continue;
+        ax += p.x * canvas.width; ay += p.y * canvas.height; n++;
+      }
+      if (n>0){
+        const avg = { x: ax/n, y: ay/n };
+        const t = Math.max(0, Math.min(1, REALISM.CENTER_BLEND));
+        centerRaw = { x: centerRaw.x + (avg.x - centerRaw.x)*t, y: centerRaw.y + (avg.y - centerRaw.y)*t };
+      }
+      const dy = (REALISM.CENTER_Y_OFFSET||0) * (radius||0);
+      return { x: centerRaw.x, y: centerRaw.y + dy };
+    }
+
+    function ptsFromIndices(landmarks, indices){
+      const W = canvas.width, H = canvas.height;
+      const pts = [];
+      for (const i of indices){
+        const p = landmarks[i];
+        if (p) pts.push({x: p.x*W, y: p.y*H});
+      }
+      return pts;
+    }
+    function buildEyeClip(landmarks, upperIdx, lowerIdx){
+      const up = ptsFromIndices(landmarks, upperIdx);
+      const low = ptsFromIndices(landmarks, lowerIdx);
+      if (up.length < 2 || low.length < 2) return null;
+      return up.concat([...low].reverse());
+    }
+    function getEyeSide(center){
+      if (!currentEyes.left && !currentEyes.right) return null;
+      const dl = currentEyes.left ? Math.hypot(center.x-currentEyes.left.center.x, center.y-currentEyes.left.center.y) : Infinity;
+      const dr = currentEyes.right? Math.hypot(center.x-currentEyes.right.center.x, center.y-currentEyes.right.center.y) : Infinity;
+      return (dl <= dr) ? 'left' : 'right';
+    }
+    function smoothPoly(prev, next){
+      if (!next) return null;
+      if (!prev) return next;
+      const t = 1 - REALISM.SMOOTHING;
+      const m = Math.min(prev.length, next.length);
+      const out = [];
+      for (let i=0; i<m; i++){
+        const a = prev[i], b = next[i];
+        out.push({ x: a.x + (b.x - a.x)*t, y: a.y + (b.y - a.y)*t });
+      }
+      for (let i=m; i<next.length; i++) out.push(next[i]);
+      return out;
+    }
+
+    // TODO fix - maybe here (paintEye & drawShading) is where I can fix the bug
+    // - make the iris as is is and not always round
+    function paintEye(center, radius, color, alpha, blendMode) {
+      if (!center || !radius || radius < 3) return;
+      const r = Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, radius * REALISM.IRIS_SHRINK));
+      const S = Math.ceil(r*2 + 4);
+      ensureEyeLayersSize(S);
+
+      const sideForMask = getEyeSide(center);
+      const lidPoly = sideForMask && currentEyelids[sideForMask] ? currentEyelids[sideForMask] : null;
+     
+
+      // Creates all the visual effects that turn a simple color circle into a "realistic eye":
+      // darkness at the edges, a black ring, fibers, rings, reflections, small noise, and a pupil in the center
+     
+      // // TODO - try to put it on comment
+      // // !!!
+      // (function drawShading(){
+      //   const sx = eyeShadeCtx;
+      //   sx.save();
+      //   sx.clearRect(0,0,S,S);
+      //   sx.translate(S/2, S/2);
+      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.closePath(); sx.clip();
+
+      //   sx.globalCompositeOperation = 'source-over';
+      //   sx.globalAlpha = REALISM.EDGE_DARKEN * alpha;
+      //   let g = sx.createRadialGradient(0,0, r*0.2, 0,0, r);
+      //   g.addColorStop(0, 'rgba(0,0,0,0)');
+      //   g.addColorStop(1, 'rgba(0,0,0,1)');
+      //   sx.fillStyle = g;
+      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
+
+      //   sx.globalAlpha = REALISM.INNER_GLOW * alpha;
+      //   g = sx.createRadialGradient(0,0, 0, 0,0, r*0.65);
+      //   g.addColorStop(0, 'rgba(255,255,255,1)');
+      //   g.addColorStop(1, 'rgba(255,255,255,0)');
+      //   sx.fillStyle = g;
+      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
+
+      //   sx.globalAlpha = REALISM.LIMBAL_ALPHA * alpha;
+      //   sx.beginPath();
+      //   sx.arc(0,0,r,0,Math.PI*2);
+      //   sx.lineWidth = Math.max(1, r * REALISM.LIMBAL_WIDTH);
+      //   sx.lineCap = 'round'; sx.lineJoin = 'round';
+      //   sx.strokeStyle = 'rgba(0,0,0,1)';
+      //   sx.stroke();
+
+      //   // Dark fibers in the iris
+      //   sx.globalAlpha = REALISM.FIBER_ALPHA * alpha;
+      //   sx.lineCap = 'round';
+      //   for (let i=0; i<REALISM.FIBER_COUNT; i++){
+      //     const jitter = (prand(100+i)-0.5) * REALISM.FIBER_JITTER;
+      //     const a = (i / REALISM.FIBER_COUNT) * Math.PI*2 + jitter;
+      //     const inner = r * REALISM.FIBER_INNER;
+      //     const outer = r * REALISM.FIBER_OUTER;
+      //     const x1 = Math.cos(a)*inner, y1 = Math.sin(a)*inner;
+      //     const x2 = Math.cos(a)*outer, y2 = Math.sin(a)*outer;
+      //     sx.beginPath(); sx.moveTo(x1,y1); sx.lineTo(x2,y2);
+      //     sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
+      //   }
+
+      //   // Illuminated fibers
+      //   sx.globalCompositeOperation = 'screen';
+      //   sx.globalAlpha = REALISM.FIBER_LIGHT_ALPHA * alpha;
+      //   sx.lineCap = 'round';
+      //   for (let i=0; i<REALISM.FIBER_COUNT; i++){
+      //     const jitter = (prand(1000+i)-0.5) * REALISM.FIBER_JITTER;
+      //     const a = (i / REALISM.FIBER_COUNT) * Math.PI*2 + jitter;
+      //     const inner = r * 0.252;
+      //     const outer = r * 0.931;
+      //     const x1 = Math.cos(a)*inner, y1 = Math.sin(a)*inner;
+      //     const x2 = Math.cos(a)*outer, y2 = Math.sin(a)*outer;
+      //     sx.beginPath(); sx.moveTo(x1,y1); sx.lineTo(x2,y2);
+      //     sx.lineWidth = 0.8; sx.strokeStyle = 'rgba(255,255,255,1)'; sx.stroke();
+      //   }
+
+      //   // Inner rings
+      //   sx.globalCompositeOperation = 'overlay';
+      //   sx.globalAlpha = REALISM.BAND_ALPHA * alpha;
+      //   for (let b=1; b<=REALISM.BAND_COUNT; b++){
+      //     const t = b/(REALISM.BAND_COUNT+1);
+      //     sx.beginPath();
+      //     sx.arc(0,0, r*(0.35 + t*0.55), 0, Math.PI*2);
+      //     sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
+      //   }
+
+      //   // Light reflection
+      //   sx.globalAlpha = REALISM.HIGHLIGHT_ALPHA * alpha;
+      //   const hlr = r * 0.5;
+      //   const hx = - r*REALISM.HIGHLIGHT_OFFSET;
+      //   const hy = - r*REALISM.HIGHLIGHT_OFFSET;
+      //   const grad = sx.createRadialGradient(hx, hy, hlr*0.05, hx, hy, hlr);
+      //   grad.addColorStop(0, 'rgba(255,255,255,0.9)');
+      //   grad.addColorStop(1, 'rgba(255,255,255,0)');
+      //   sx.fillStyle = grad;
+      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
+
+      //   // Adds subtle "noise" so the eye doesn't look too smooth plastic
+      //   sx.globalAlpha = 0.06 * alpha;
+      //   sx.fillStyle = sx.createPattern(noiseCanvas, 'repeat');
+      //   sx.fillRect(-r, -r, r*2, r*2);
+
+      //   // The pupil hole
+      //   sx.globalCompositeOperation = 'destination-out';
+      //   sx.globalAlpha = 1;
+      //   sx.beginPath(); sx.arc(0,0, Math.max(2, r*REALISM.PUPIL_RATIO), 0, Math.PI*2); sx.fill();
+      //   sx.restore();
+      // })();
+      // // !!!
+
+      // const sideForMask = getEyeSide(center);
+      // const lidPoly = sideForMask && currentEyelids[sideForMask] ? currentEyelids[sideForMask] : null;
+     
+     
+      ensureMaskSize(S);
+
+      // !!!
+
+      // Constructs a basic circle mask (the pupil/iris)
+      function buildBaseMask(ctx, r, S) {
+        
+        ctx.save();
+        ctx.clearRect(0, 0, S, S);
+        ctx.translate(S / 2, S / 2);
+        ctx.beginPath();
+        ctx.arc(0, 0, r, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,1)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      //       function buildEyelidMask(ctx, lidPoly, center, S) {
+//   if (!lidPoly || lidPoly.length < 3) return;
+
+//   ctx.save();
+
+//   // Keep only the overlapping pixels (clip effect)
+//   ctx.globalCompositeOperation = 'destination-in';
+
+//   // Build the eyelid polygon in eye-local coordinates
+//   ctx.beginPath();
+//   ctx.translate(S / 2, S / 2);
+//   ctx.moveTo(lidPoly[0][0] - center[0], lidPoly[0][1] - center[1]);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     const p = lidPoly[i];
+//     ctx.lineTo(p[0] - center[0], p[1] - center[1]);
+//   }
+//   ctx.closePath();
+
+//   // Fill the clipping mask (white keeps, transparent removes)
+//   ctx.fillStyle = '#fff';
+//   ctx.fill();
+
+//   ctx.restore();
+// }
+
+      // Constructs an eyelid mask (cuts out part of the eye according to the eyelid polygon)
+      function buildEyelidMask(ctx, lidPoly, center, S) {
+        if (!lidPoly || lidPoly.length < 3) return;
+      
+        ctx.save();
+        ctx.clearRect(0, 0, S, S);
+        ctx.translate(S / 2, S / 2);
+
+        ctx.beginPath();
+        ctx.moveTo(lidPoly[0][0] - center[0], lidPoly[0][1] - center[1]);
+        for (let i = 1; i < lidPoly.length; i++) {
+          const p = lidPoly[i];
+          ctx.lineTo(p[0] - center[0], p[1] - center[1]);
+        }
+        ctx.closePath();
+        ctx.fillStyle = 'rgba(255,255,255,1)';
+        ctx.fill();
+        ctx.restore();
+      }
+
+      function buildEyelidPath(ctx, lidPoly, center, S) {
+
+          // eyeCutCtx.save();
+          // eyeCutCtx.clearRect(0,0,S,S);
+          // eyeCutCtx.translate(S/2, S/2);
+          // eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
+          // eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+          // eyeCutCtx.globalCompositeOperation = 'destination-out';
+          // eyeCutCtx.beginPath();
+          // eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+          // for (let i=1;i<lidPoly.length;i++){
+          //   const p = lidPoly[i];
+          //   eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
+          // }
+          // eyeCutCtx.closePath();
+          // eyeCutCtx.fill();
+          // eyeCutCtx.restore();
+
+          // eyeCutFeatherCtx.save();
+          // eyeCutFeatherCtx.clearRect(0,0,S,S);
+          // try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
+          // eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
+          // try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
+          // eyeCutFeatherCtx.restore();
+
+          // eyeMaskCtx.save();
+          // eyeMaskCtx.globalCompositeOperation = 'destination-out';
+          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+          // eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
+          // eyeMaskCtx.restore();
+
+
+        //  // fOne
+        // Saves the current drawing state
+        ctx.save();
+
+        // Only keep the existing pixels (destination)
+        ctx.globalCompositeOperation = 'destination-in';
+
+        // Starts a new drawing path (for the polygon we’re about to draw)
+        ctx.beginPath();
+       
+        // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
+        ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
+        for (let i = 1; i < lidPoly.length; i++) {
+          const p = lidPoly[i];
+          ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
+        }
+        ctx.closePath();
+        
+        // Fill color white
+        eyeMaskCtx.fillStyle = '#fff';
+        
+        // Fills the polygon with white.
+        eyeMaskCtx.fill();
+
+        // Restores the previous drawing state (undoing the composition mode and any transformations).
+        eyeMaskCtx.restore();
+      }
+
+      // F 1
+
+      function fOne(ctx, lidPoly, center, S){
+         //  // fOne
+        // Saves the current drawing state
+        ctx.save();
+
+        // Only keep the existing pixels (destination)
+        ctx.globalCompositeOperation = 'destination-in';
+
+        // Starts a new drawing path (for the polygon we’re about to draw)
+        ctx.beginPath();
+       
+        // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
+        ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
+        for (let i = 1; i < lidPoly.length; i++) {
+          const p = lidPoly[i];
+          ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
+        }
+        ctx.closePath();
+        
+        // Fill color white
+        eyeMaskCtx.fillStyle = '#fff';
+        
+        // Fills the polygon with white.
+        eyeMaskCtx.fill();
+
+        // Restores the previous drawing state (undoing the composition mode and any transformations).
+        eyeMaskCtx.restore();
+      }
+
+// the eyeMaskCtx.globalCompositeOperation = ''
+
+// source-over
+// destination-over
+// clear
+// copy
+// 
+// destination-in
+// destination-out
+// source-in
+// source-out
+// destination-atop
+// source-atop
+
+    // eyeMaskLayer eyeMaskCtx eyeMaskFeather eyeMaskFeatherCtx eyeCutLayer eyeCutCtx eyeCutFeather eyeCutFeatherCtx
+
+      // F 2
+      function fTwo(ctx, lidPoly, center, S){
+ // fTwo
+        // 1️⃣  Create eyelid cut mask (no shadows)    
+          eyeCutCtx.save();
+          eyeCutCtx.clearRect(0,0,S,S);
+          eyeCutCtx.translate(S/2, S/2);
+      
+      // `````
+
+          // White background — this defines the area that will be clipped out (square)
+          eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
+          eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+
+          // Subtract the eyelid polygon area (cutout)
+          eyeCutCtx.globalCompositeOperation = 'destination-out';
+          // eyeCutCtx.globalCompositeOperation = 'destination-in';
+
+          eyeCutCtx.beginPath();
+          eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+         
+          for (let i=1;i<lidPoly.length;i++){
+            const p = lidPoly[i];
+            eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
+          }
+          eyeCutCtx.closePath();
+          eyeCutCtx.fill();
+
+      // `````
+          eyeCutCtx.restore();
+
+          // 2️⃣ Light feather (very subtle blur just for soft edges)
+          eyeCutFeatherCtx.save();
+          eyeCutFeatherCtx.clearRect(0,0,S,S);
+          
+          // making 2 shadows 
+          try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
+
+          // // TODO if I delete this so no shadow, but no clip...
+          eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
+          try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
+          eyeCutFeatherCtx.restore();
+
+
+          // 3️⃣ Apply to the mask — this part clips the color filter
+          eyeMaskCtx.save();
+          eyeMaskCtx.globalCompositeOperation = 'destination-out';
+          // eyeMaskCtx.globalCompositeOperation = 'destination-in';
+
+
+     
+          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+ 
+          
+          // // ↓ Control clip strength here (1 = full clip, 0 = none)
+
+          // eyeMaskCtx.globalAlpha = 1; // good-clip bad-left eye
+         
+
+          // eyeMaskCtx.globalAlpha = 0.5; // good-clip bad-left eye
+
+          // eyeMaskCtx.globalAlpha = 0.9; // good-clip bad-left eye
+         
+          eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
+          eyeMaskCtx.restore();
+      }
+
+      
+
+      function applyFeather(ctx, sourceCanvas, blurPx, S) {        
+        ctx.save();
+        ctx.clearRect(0, 0, S, S);
+        try { ctx.filter = `blur(${blurPx}px)`; } catch (_) {}
+        ctx.drawImage(sourceCanvas, 0, 0);
+        ctx.restore();
+        try { ctx.filter = 'none'; } catch (_) {}
+      }
+      
+ 
+
+
+  // function buildEyelidPath(ctx, lidPoly, center, S) {
+  //       ctx.save();
+  //       ctx.globalCompositeOperation = 'destination-in';
+
+  //       // lidPoly = [{x,y}, ...]; center = {x,y}
+  //       ctx.beginPath();
+  //       // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
+  //       ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
+  //       for (let i = 1; i < lidPoly.length; i++) {
+  //         const p = lidPoly[i];
+  //         ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
+  //       }
+  //       ctx.closePath();
+        
+  //       eyeMaskCtx.fillStyle = '#fff';
+  //       eyeMaskCtx.fill();
+  //       eyeMaskCtx.restore();
+  //     }
+
+      // !!!
+
+
+      // OPTION 1
+      // basic colors good with both eyes
+      // bug - when there is one eye the color is still shows 
+      // 3/10
+
+      // (function buildMask(){
+
+      //   // Step 1 – Basic Circle Mask
+      //   buildBaseMask(eyeMaskCtx, r, S);
+
+      //   // Step 2 – If there are eyelids → Create an eyelid mask
+      //   // Cutting by eyelid
+      //   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+
+      //     buildEyelidMask(eyeCutCtx, lidPoly, center, S);
+
+      //     // Add the blur layer to the mask itself - this creates a situation
+      //     // where the mask takes into account the closing of the eyelids
+ 
+      //     applyFeather(eyeCutFeatherCtx, eyeCutLayer, EYELID_MASK.BLUR_PX, S);
+      //   }
+
+      //   // Step 3 – Blur the overall mask
+      //   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+
+      // })();
+
+
+
+    // !!!!
+    // row code from the good filter - 8.9
+
+
+// OPTION 2
+// clip colored
+// bug - when there is one eye the color is still shows 
+// bug - left eye not good
+// 6/10
+
+// (function buildMask(){
+
+//   eyeMaskCtx.save();
+//   eyeMaskCtx.clearRect(0,0,S,S);
+//   eyeMaskCtx.translate(S/2, S/2);
+//   eyeMaskCtx.beginPath();
+//   eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+//   eyeMaskCtx.fillStyle = '#fff';
+//   eyeMaskCtx.fill();
+//   eyeMaskCtx.restore();
+
+//   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+//     buildEyelidPath(eyeMaskCtx, lidPoly, center, S);
+//   }
+
+//   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+
+// })();
+
+
+// OPTION 3
+// clip colored
+// bug - left eye not good
+// bug - when there is one eye the color is still shows 
+// 5/10
+
+// (function buildMask(){
+
+//  eyeMaskCtx.save();
+//   eyeMaskCtx.clearRect(0,0,S,S);
+//   eyeMaskCtx.translate(S/2, S/2);
+//   eyeMaskCtx.beginPath();
+//   eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
+//   eyeMaskCtx.fillStyle = '#fff';
+//   eyeMaskCtx.fill();
+//   eyeMaskCtx.restore();
+
+//   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+
+//        eyeCutCtx.save();
+//           eyeCutCtx.clearRect(0,0,S,S);
+//           eyeCutCtx.translate(S/2, S/2);
+
+//       // Calculates a shrink eyelid shape
+//           const shrink = (r > 0) ? Math.max(0, (r - (EYELID_MASK.MARGIN_PX||0)) / r) : 1;
+    
+//       // Starts a new path
+//           eyeCutCtx.beginPath();
+
+//       // Draws a polygon shape
+//           eyeCutCtx.moveTo((lidPoly[0].x - center.x) * shrink, (lidPoly[0].y - center.y) * shrink);
+     
+//           for (let i=1;i<lidPoly.length;i++){
+//             const p = lidPoly[i];
+//             eyeCutCtx.lineTo((p.x - center.x) * shrink, (p.y - center.y) * shrink);
+//           }
+//           eyeCutCtx.closePath();
+      
+//           eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
+//           eyeCutCtx.fill();
+
+//       // Restores the previous drawing state
+//           eyeCutCtx.restore();
+
+//           eyeCutFeatherCtx.save();
+//           eyeCutFeatherCtx.clearRect(0,0,S,S);
+//           try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
+//           eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
+//           try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
+//           eyeCutFeatherCtx.restore();
+
+//           eyeMaskCtx.save();
+//           eyeMaskCtx.globalCompositeOperation = 'destination-in';
+//           eyeMaskCtx.globalAlpha = 1;
+//           eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
+//           eyeMaskCtx.restore();
+
+//     }
+
+//   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+  
+//  })();
+
+
+// TODO - take this option and add clip
+// in OPTION 2 there is a good clip
+// take the code from OPTION 2 and understand it and add what I need
+
+// OPTION 4
+// basic colors good with both eyes with good shadow inside
+// bug - left eye color less good
+// bug - when there is one eye the color is still shows 
+// need clip the color
+// 8/10
+
+
+
+/*
+Step	Purpose
+1	    Create base circular mask
+2	    If eyelid active, build a cut shape
+3	    Erase that shape from mask
+4	    Blur the edges for realism
+5	    Apply to main eye mask with adjustable strength
+6	    Feather the final result
+*/
+
+      // TODOs:
+      // make the file into 3 files - html, css and js
+      // TODO - at the end when I finish compress the files like in vit - minifite 
+
+        
+      (function buildMask(){
+
+        
+        // here it create cirlce maks, I can add if (the eye small clip it, ) - עדיף לעשות יחס, כדי 
+        // 
+        // cosinus and sinus function
+
+        // Create a circular white mask base
+          eyeMaskCtx.save();
+          eyeMaskCtx.clearRect(0,0,S,S);
+          eyeMaskCtx.translate(S/2, S/2);
+          eyeMaskCtx.beginPath();
+
+          // create a circular base mask
+          // TODO - add if openL > 0.3 draw circle else clip it
+          eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2); // make it circle
+          eyeMaskCtx.fillStyle = '#fff';
+          eyeMaskCtx.fill();
+          
+          eyeMaskCtx.restore();
+
+
+        // Check if eyelid masking should happen
+          if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
+
+            // fOne(eyeMaskCtx, lidPoly, center, S);
+
+            fTwo(eyeCutCtx, lidPoly, center, S)
+
+            }
+          // Apply final feathering to the mask itself
+          applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+
+      })();
+
+
+
+
+      (function drawColor(){
+        const cx = eyeColorCtx;
+        cx.save();
+        cx.clearRect(0,0,S,S);
+        cx.translate(S/2, S/2);
+       
+        // Clip circle
+        cx.beginPath(); cx.arc(0,0,r,0,Math.PI*2); cx.closePath(); cx.clip();
+        cx.globalCompositeOperation = 'source-over';
+        cx.globalAlpha = Math.min(1, alpha);
+        cx.fillStyle = color;
+        cx.fillRect(-r, -r, r*2, r*2);
+
+        // Punch hole for pupil
+        cx.globalCompositeOperation = 'destination-out';
+        cx.globalAlpha = 1;
+        cx.beginPath(); cx.arc(0,0, Math.max(2, r*REALISM.PUPIL_RATIO), 0, Math.PI*2);
+        cx.fill();
+        
+        cx.restore();
+      })();
+
+
+      // Apply the masks
+      eyeColorCtx.globalCompositeOperation = 'destination-in'; // Both the color and the shading will appear only within the eye shape.
+      eyeColorCtx.drawImage(eyeMaskFeather, 0, 0);
+      eyeShadeCtx.globalCompositeOperation = 'destination-in';
+      eyeShadeCtx.drawImage(eyeMaskFeather, 0, 0);
+
+      ctx.save();
+
+      // !!!
+      
+
+// // 1. Clip to the iris circle at the correct position
+// ctx.beginPath();
+// ctx.arc(center.x, center.y, r, 0, Math.PI * 2);
+// ctx.closePath();
+
+// // 2. If eyelid polygon exists, intersect with it
+// if (lidPoly && lidPoly.length >= 3) {
+//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
+//   }
+//   ctx.closePath();
+// }
+// ctx.clip();
+
+
+// Only clip with eyelid polygon (in canvas coordinates)
+
+// if (lidPoly && lidPoly.length >= 3) {
+//   ctx.save();
+//   ctx.beginPath();
+//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
+//   }
+//   ctx.closePath();
+//   ctx.strokeStyle = 'red';
+//   ctx.lineWidth = 2;
+//   ctx.stroke();
+//   ctx.restore();
+// }
+
+
+// if (lidPoly && lidPoly.length >= 3) {
+//   ctx.beginPath();
+//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
+//   for (let i = 1; i < lidPoly.length; i++) {
+//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
+//   }
+//   ctx.closePath();
+//   ctx.clip();
+// }
+
+      // !!!
+
+      // Draw the iris filter layers
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = resolveBlendMode(blendMode);
+      ctx.drawImage(eyeColorLayer, center.x - S/2, center.y - S/2);
+
+      ctx.globalCompositeOperation = resolveBlendMode('screen');
+      ctx.globalAlpha = REALISM.FILL_BOOST_ALPHA * alpha;
+      ctx.drawImage(eyeColorLayer, center.x - S/2, center.y - S/2);
+
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = resolveBlendMode('overlay');
+      ctx.drawImage(eyeShadeLayer, center.x - S/2, center.y - S/2);
+      ctx.restore();
+    }
+
+    // Get the face points from the video and calculate the eye position in each frame
+    function onFaceMeshResults(results) {
+
+      // If no faces are found, reset the eye state and exit the function
+      if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
+        currentEyes = { left: null, right: null };
+        return;
+      }
+
+      const landmarks = results.multiFaceLandmarks[0];
+
+      // !!!
+      // Calculate how open the eyes are
+      // const openL = leftOpenness(landmarks);
+      // const openR = rightOpenness(landmarks);
+      // !!!
+
+      // Calculate how open the eyes are
+      const openL = eyeOpenness(landmarks, 159, 145, 33, 133);
+      const openR = eyeOpenness(landmarks, 386, 374, 263, 362);
+
+
+      const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
+      const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
+      currentEyelids.left  = smoothPoly(currentEyelids.left,  leftRawPoly);
+      currentEyelids.right = smoothPoly(currentEyelids.right, rightRawPoly);
+
+      const lerp = (a,b,t)=> a + (b-a)*t;
+
+      // Calculate the center and radius of the iris in both eyes
+      const leftCenterRaw  = calculateEyeCenter(landmarks, LEFT_IRIS_RING, LEFT_IRIS_CENTER);
+      const leftRadiusRaw  = calculateEyeRadius(leftCenterRaw, landmarks, LEFT_IRIS_RING);
+      const rightCenterRaw = calculateEyeCenter(landmarks, RIGHT_IRIS_RING, RIGHT_IRIS_CENTER);
+      const rightRadiusRaw = calculateEyeRadius(rightCenterRaw, landmarks, RIGHT_IRIS_RING);
+
+      // Compares the current values ​​to the previous values ​​and smooths
+      // the motion so there are no "jumps" between frames
+      function smooth(prev, next){
+        if (!prev) return next;
+        const t = 1 - REALISM.SMOOTHING;
+        return {
+          center: { x: lerp(prev.center.x, next.center.x, t), y: lerp(prev.center.y, next.center.y, t) },
+          radius: lerp(prev.radius, next.radius, t),
+          open:   clamp01((prev.open ?? next.open ?? 0) + ((next.open ?? 0) - (prev.open ?? 0)) * t)
+        };
+      }
+
+      // Correct the center position with a function that also takes into account slight tilts of the eye
+      const leftCenter = biasEyeCenter(leftCenterRaw, leftRadiusRaw, LEFT_IRIS_RING, landmarks);
+      const rightCenter = biasEyeCenter(rightCenterRaw, rightRadiusRaw, RIGHT_IRIS_RING, landmarks);
+
+      // Create the new values ​​(for the current prime) of each eye: center, radius, opening size
+      const leftNext  = { center: leftCenter,  radius: leftRadiusRaw,  open: openL };
+      const rightNext = { center: rightCenter, radius: rightRadiusRaw, open: openR };
+
+      currentEyes = {
+        left:  currentEyes.left  ? smooth(currentEyes.left,  leftNext)  : leftNext,
+        right: currentEyes.right ? smooth(currentEyes.right, rightNext) : rightNext
+      };
+    }
+
+    // Handles video frames
+    async function processVideoFrame() {
+
+      if (!running || !video.videoWidth || !video.videoHeight) {
+        if (running) animationId = requestAnimationFrame(processVideoFrame);
+        return;
+      }
+
+      // Preparing the canvas and drawing the video on it
+      updateCanvasSize();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // Sending the frame to the FaceMesh model
+      if (faceMesh) {
+        try { await faceMesh.send({ image: video }); } catch (_) {}
+      }
+
+      // Retrieve color and transparency settings
+      const alpha = parseInt(alphaInp.value, 10) / 100;
+      const color = colorInp.value;
+
+      // Check eye condition and draw them
+      if (alpha > 0 && currentEyes) {
+
+        // Calculate how long each eye is open
+        const gateL = currentEyes.left  ? smoothstep(BLINK.T0, BLINK.T1, (currentEyes.left.open  ?? 0))  : 0;
+        const gateR = currentEyes.right ? smoothstep(BLINK.T0, BLINK.T1, (currentEyes.right.open ?? 0)) : 0;
+
+        // Generate customized transparency
+        const alphaL = alpha * gateL;
+        const alphaR = alpha * gateR;
+
+        // Draws a color/effect on the pupil
+        if (alphaL > 0.01 && currentEyes.left)  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
+        if (alphaR > 0.01 && currentEyes.right) paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
+      }
+
+      if (running) animationId = requestAnimationFrame(processVideoFrame);
+    }
+
+    // Loads and prepares the face recognition model
+    async function initializeFaceMesh() {
+      try {
+        setLoadingStatus('מאתחל זיהוי פנים');
+
+        // If the directory does not exist, throws an error
+        if (typeof FaceMesh === 'undefined') throw new Error('MediaPipe FaceMesh לא נטען');
+
+        // Creates FaceMesh, and tells it where to load the necessary files (CDN)
+        faceMesh = new FaceMesh({
+          locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+        });
+
+        faceMesh.setOptions({
+          maxNumFaces: 1, // Recognizes the face of one person
+          refineLandmarks: true, // Higher accuracy (including pupils and lips)
+          minDetectionConfidence: 0.5, // Minimum confidence threshold for detection
+          minTrackingConfidence: 0.5 // Minimum confidence threshold for face tracking
+        });
+
+        faceMesh.onResults(onFaceMeshResults);
+        if (typeof faceMesh.initialize === 'function') await faceMesh.initialize();
+
+        return true;
+      } catch (error) {
+        setStatus('שגיאה באתחול זיהוי פנים: ' + (error.message || error), false);
+        return false;
+      }
+    }
+
+    async function startCamera() {
+      try {
+        // Security testing and support
+        if (!isSecureContext()) { setStatus('דרוש HTTPS או localhost לגישה למצלמה', false); return; }
+        if (!navigator.mediaDevices?.getUserMedia) { setStatus('הדפדפן לא תומך בגישה למצלמה', false); return; }
+
+        // Update status and prepare buttons
+        btnStartCenter.disabled = true;
+        setLoadingStatus('מבקש גישה למצלמה');
+
+        // Request access to the camera
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'user', // Front camera (selfie)
+
+            // Ideal quality and frame settings
+            width:  { ideal: 640, max: 1280 },
+            height: { ideal: 480, max: 720 },
+            frameRate: { ideal: 30, max: 60 }
+
+          // aspectRatio: { ideal: 9 / 16 },
+          // width:  { ideal: 1080 },
+          // height: { ideal: 1920 },
+
+          },
+          audio: false
+        }
+      );
+ 
+
+
+        // Connecting the video to the browser
+        video.srcObject = stream;
+        await new Promise((resolve, reject) => {
+          video.onloadedmetadata = resolve;
+          video.onerror = reject;
+          setTimeout(() => reject(new Error('Timeout loading video')), 10000);
+        });
+        await video.play();
+
+        // Make sure the video is loaded and the camera is working
+        const ok = await initializeFaceMesh();
+        if (!ok) throw new Error('Failed to initialize FaceMesh');
+
+        running = true;
+
+        // Show that the camera is working
+        wrapEl.classList.add('camera-running');
+        btnStop.disabled = false;
+
+        setStatus('המצלמה פועלת - זיהוי פנים פעיל', true);
+        processVideoFrame();
+
+      } catch (error) {
+        let msg = 'שגיאה בהפעלת המצלמה: ';
+        if (error.name === 'NotAllowedError') msg += 'הרשאה נדחתה - יש לאפשר גישה למצלמה';
+        else if (error.name === 'NotFoundError') msg += 'מצלמה לא נמצאה במכשיר';
+        else if (error.name === 'NotReadableError') msg += 'המצלמה בשימוש או לא זמינה';
+        else msg += (error.message || 'שגיאה לא ידועה');
+
+        setStatus(msg, false);
+        btnStartCenter.disabled = false;
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        running = false;
+      }
+    }
+
+    // Turns off the camera, stops drawing loops, clears the canvas and UI
+    function stopCamera() {
+      try {
+        running = false; // Indicates that the system is no longer running
+        if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
+        if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+        video.srcObject = null; // Clears the video source
+        currentEyes = { left: null, right: null }; // Resets eye information (no longer recognized)
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Removes classics indicating that the camera is active or the palette is open
+        wrapEl.classList.remove('camera-running');
+        wrapEl.classList.remove('palette-open');
+        btnStartCenter.disabled = false;
+        btnStop.disabled = true;
+        
+        setStatus('לחץ על "הפעל מצלמה" להתחלה');
+      } catch (_) {}
+    }
+
+    btnStartCenter.addEventListener('click', startCamera); 
+    btnStop.addEventListener('click', stopCamera);
+    colorInp.addEventListener('input', () => {
+      document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
+      setWrapBgFromColor(colorInp.value);
+      updateColorTag();
+    });
+
+    document.querySelectorAll('.efw-chip').forEach(chip => {
+      chip.addEventListener('click', () => {
+        colorInp.value = chip.dataset.color;
+        document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
+        chip.classList.add('active');
+        setWrapBgFromColor(colorInp.value);
+        updateColorTag();
+
+        // Automatically close the panel after selecting a color
+        if (wrapEl && fabBtn && pal){
+          wrapEl.classList.remove('palette-open');
+          fabBtn.setAttribute('aria-expanded','false');
+          pal.setAttribute('aria-hidden','true');
+        }
+      });
+    });
+    
+    // Changes the text that displays the transparency value according to the slider 
+    alphaInp.addEventListener('input', () => { alphaVal.textContent = alphaInp.value; });
+ 
+    
+    //  Start updated UI 
+  
+    function snapshotAndDownload(){
+      try{
+        const pad = (n)=> String(n).padStart(2,'0');
+        const d = new Date();
+        const fname = `eye-filter-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`;
+        if (canvas.toBlob){
+          canvas.toBlob((blob)=>{
+            if(!blob) return;
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url; a.download = fname; document.body.appendChild(a);
+            a.click();
+            setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+          }, 'image/png');
+        } else {
+          const url = canvas.toDataURL('image/png');
+          const a = document.createElement('a');
+          a.href = url; a.download = fname; document.body.appendChild(a);
+          a.click(); a.remove();
+        }
+      }catch(err){
+        setStatus('שגיאה בצילום/הורדה', false);
+      }
+    }
+    if (btnCapture){ btnCapture.addEventListener('click', snapshotAndDownload); }
+ //  End updated UI  
+
+  })();
