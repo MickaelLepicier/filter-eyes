@@ -18,6 +18,33 @@
 
 // at the end compress this code that in HTML with js and css files
 
+/*
+TODO - check here for bug:
+
+
+Where shadows / clipping issues likely arise:
+
+* The code contains many experiments toggling different compositing modes and masks. The main places affecting shadows / clipping are:
+  - The large commented shading block inside paintEye (creates inner glow, limbals, fibers, highlights and the pupil via destination-out). If enabled, it generates shading inside the eye.
+  - fTwo / buildEyelidMask / buildEyelidPath / usage of globalCompositeOperation when combining eyeCutFeather onto eyeMaskCtx. The choice of destination-in vs destination-out and the globalAlpha used when drawing the feathered cut controls whether the color is clipped by eyelids and whether a shadow-like soft edge remains.
+  - applyFeather uses ctx.filter = blur(...) which creates soft edges (appearing like shadows), and eyeCutFeatherCtx.drawImage(eyeCutLayer) will produce that feather. If you remove the blur/draw steps, clipping becomes hard (no soft shadow).
+  - The final composition on main canvas uses resolveBlendMode('overlay') etc. That can produce blend effects that look like shadows or darkening.
+
+* Short recommendation (if you want next steps)
+
+  - If you want "color without shadows but still clipped": remove or disable the shading block and remove any operations that composite darkening (EDGE_DARKEN, LIMBAL_ALPHA, drawing to eyeShadeLayer), and ensure fTwo uses destination-out to remove eyelid area from the mask but avoid blurring the cut or reduce blur to 0 (eyeCutFeatherCtx.filter = 'none') so no soft shadow remains.
+  - If you want "clip off when eye closed": ensure the eyelid polygon is drawn and applied to eyeMask before drawing the color, and keep eyeMaskCtx.globalAlpha = 1 when drawing the cut (so the cut fully removes pixels). Also ensure blink gate multiplies alpha so fully closed eye sets alpha to 0.
+  
+* If you want I can:
+
+  - produce a concise patch to fTwo/buildMask to remove shadow (reduce blur and avoid any dark shading),
+  - or simplify mask composition to a single destination-in mask that strictly clips color (no feather).
+
+  Which do you prefer?
+*/
+
+
+
 
     // const TARGET_ASPECT = 9 / 16; // יחס יעד: 9:16
 
@@ -41,9 +68,10 @@
    // Start Color Tag
     const colorTag = document.getElementById('efw-color-tag');
 
-
+    // clamp value to range
     function clamp(v, min, max){ return v < min ? min : (v > max ? max : v); }
     
+    // hex string from RGB
     function hexToRgb(hex){
       if (!hex) return {r: 183, g: 164, b: 157};
       let h = hex.trim().replace('#','');
@@ -58,6 +86,7 @@
       return '#' + toHex(r) + toHex(g) + toHex(b);
     }
 
+    // returns darker hex color
     function darkenHex(hex, amount){
       const {r,g,b} = hexToRgb(hex);
       return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
@@ -70,6 +99,7 @@
       wrapEl.style.background = `linear-gradient(135deg, ${c2}, ${c1})`;
     }
 
+    // UI helper for color chips and palette text
     function getSelectedChip(){
       const active = document.querySelector('.efw-chip.active');
       if (active) return active;
@@ -78,7 +108,8 @@
       for (const ch of chips){ if ((ch.dataset.color||'').toLowerCase() === val) return ch; }
       return null;
     }
-    
+
+    // UI helper for color chips and palette text
     function updateColorTag(){
       if (!colorTag) return;
       const chip = getSelectedChip();
@@ -163,6 +194,7 @@
     noiseCanvas.width = 64;
     noiseCanvas.height = 64;
     
+    // populates noiseCanvas with low-alpha gray noise used subtly in iris texture
     (function buildNoise(){
       const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
       for (let i=0; i<img.data.length; i+=4){
@@ -186,6 +218,7 @@
     // combines all of them
     const eyeShadeCtx = eyeShadeLayer.getContext('2d');
     
+    // ensure eyeColorLayer and eyeShadeLayer have size S and clear them
     function ensureEyeLayersSize(size){
       const s = Math.max(16, Math.ceil(size));
       if (eyeColorLayer.width !== s || eyeColorLayer.height !== s){ eyeColorLayer.width = s; eyeColorLayer.height = s; }
@@ -214,6 +247,7 @@
     // Blurs eyelid mask edges
     const eyeCutFeatherCtx = eyeCutFeather.getContext('2d'); // Gets the 2D drawing context for the eyeCutFeather to apply blur effects to the eyelid mask
 
+    // ensure mask/cut/feather canvases are sized and cleared
     function ensureMaskSize(size){
       const s = Math.max(16, Math.ceil(size));
       if (eyeMaskLayer.width !== s || eyeMaskLayer.height !== s){ eyeMaskLayer.width = s; eyeMaskLayer.height = s; }
@@ -227,6 +261,7 @@
     }
 
     const testCtx = document.createElement('canvas').getContext('2d');
+    // detection for common compositing operations
     const BLEND_SUPPORT = {};
 
     ['multiply','screen','overlay','color','source-over','lighter'].forEach(m=>{
@@ -234,6 +269,7 @@
       catch(_){ BLEND_SUPPORT[m] = false; }
     });
     
+    // pick a supported fallback for a requested blend mode
     function resolveBlendMode(requested){
       if (BLEND_SUPPORT[requested]) return requested;
       if (requested === 'color') return BLEND_SUPPORT['multiply'] ? 'multiply' : 'source-over';
@@ -242,6 +278,7 @@
       return 'source-over';
     }
 
+    // Landmark index constants to compute centers, radii, eyelid polygons
     const LEFT_IRIS_RING = [468,469,470,471];
     const LEFT_IRIS_CENTER = 472;
     const RIGHT_IRIS_RING = [473,474,475,476];
@@ -251,20 +288,25 @@
     const RIGHT_EYE_UPPER = [386,385,384,398,263];
     const RIGHT_EYE_LOWER = [374,380,381,382,362];
 
-    // Show message to the user
+    // Show message to the user:
+    // show status text and style
     function setStatus(msg, isOk = null) {
       statusEl.textContent = msg || '';
       statusEl.className = 'efw-status efw-small';
       if (isOk === true)  statusEl.className += ' efw-status-ok';
       if (isOk === false) statusEl.className += ' efw-status-bad';
     }
+    // show animated loading text
     function setLoadingStatus(msg) {
       statusEl.innerHTML = msg + ' <span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>';
       statusEl.className = 'efw-status efw-small';
     }
+    // returns true if page is HTTPS or localhost
     function isSecureContext() {
       return location.protocol === 'https:' || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
     }
+
+    // set main canvas to video size
     function updateCanvasSize() {
       const w = video.videoWidth || 640;
       const h = video.videoHeight || 480;
@@ -273,12 +315,17 @@
       }
     }
 
+    // simple pseudo-random helpers
     function fract(x){ return x - Math.floor(x); }
     function prand(seed){ return fract(Math.sin(seed*12.9898)*43758.5453); }
 
-    // Blink/openness helpers
+    // Blink/openness helpers:
+
+    // Euclidean distance between points
     function dist(a,b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+    // canvas coords helper
     function pt(L,i){ return { x: L[i].x * canvas.width, y: L[i].y * canvas.height }; }
+    // clamp between 0 and 1
     function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
 
     // !!!
@@ -294,12 +341,17 @@
     // }
     // !!!
 
+
+    // Eye geometry & smoothing:
+
+    // returns normalized openness = vertical distance / horizontal distance
     function eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx) {
       const up = L[upIdx], low = L[lowIdx], l = L[leftIdx], r = L[rightIdx];
       if (!up || !low || !l || !r) return 1;
       return clamp01(dist(pt(L, upIdx), pt(L, lowIdx)) / Math.max(1, dist(pt(L, leftIdx), pt(L, rightIdx))));
     }
 
+    // ease between a and b
     function smoothstep(a,b,x){ const t = Math.max(0, Math.min(1, (x - a)/(b - a))); return t*t*(3-2*t); }
 
     function calculateEyeCenter(landmarks, ringIndices, centerIdx) {
@@ -315,6 +367,7 @@
       return { x: sumX / Math.max(1,n), y: sumY / Math.max(1,n) };
     }
 
+    // average distance from ring points to center
     function calculateEyeRadius(center, landmarks, ringIndices) {
       let total = 0, n = 0, minD = Infinity;
       for (const idx of ringIndices) {
@@ -329,6 +382,7 @@
       return Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, base));
     }
 
+    // nudge center towards iris ring centroid and apply vertical offset (REALISM.CENTER_Y_OFFSET)
     function biasEyeCenter(centerRaw, radius, ringIndices, landmarks){
       let ax=0, ay=0, n=0;
       for (const idx of ringIndices){
@@ -344,6 +398,7 @@
       return { x: centerRaw.x, y: centerRaw.y + dy };
     }
 
+    // convert landmark indices array to canvas-coordinate points
     function ptsFromIndices(landmarks, indices){
       const W = canvas.width, H = canvas.height;
       const pts = [];
@@ -353,18 +408,24 @@
       }
       return pts;
     }
+    
+    // builds combined polygon (upper + reversed lower)
     function buildEyeClip(landmarks, upperIdx, lowerIdx){
       const up = ptsFromIndices(landmarks, upperIdx);
       const low = ptsFromIndices(landmarks, lowerIdx);
       if (up.length < 2 || low.length < 2) return null;
       return up.concat([...low].reverse());
     }
+
+    // decide whether a detected center is left or right eye by comparing to currentEyes centers
     function getEyeSide(center){
       if (!currentEyes.left && !currentEyes.right) return null;
       const dl = currentEyes.left ? Math.hypot(center.x-currentEyes.left.center.x, center.y-currentEyes.left.center.y) : Infinity;
       const dr = currentEyes.right? Math.hypot(center.x-currentEyes.right.center.x, center.y-currentEyes.right.center.y) : Infinity;
       return (dl <= dr) ? 'left' : 'right';
     }
+
+    // blend eyelid polygon points across frames
     function smoothPoly(prev, next){
       if (!next) return null;
       if (!prev) return next;
@@ -379,8 +440,24 @@
       return out;
     }
 
-    // TODO fix - maybe here (paintEye & drawShading) is where I can fix the bug
+    // TODO - check here for bug ("paintEye & drawShading")
     // - make the iris as is is and not always round
+   
+   // Main routine that composes everything and draws the resulting
+   // colored iris onto the main canvas at given center:
+   // calculates r (shrunk iris radius) and S (working size),
+   // ensures layers sized,
+   // builds mask (circular + eyelid cut via fTwo),
+   // draws the color into eyeColorLayer (drawColor),
+   // uses destination-in compositing to apply mask to eyeColorLayer and eyeShadeLayer,
+   
+   // on main ctx: set composite operations and draw the image layers:
+   // eyeColorLayer (base), then screen blend of eyeColorLayer
+   // for fill boost, then overlay blend of eyeShadeLayer for shading.
+   // Note: lots of commented experimental code for shading, fibers,
+   // highlights—currently most shading is commented out; this is
+   // where the shadows may originate depending on which parts are enabled.
+
     function paintEye(center, radius, color, alpha, blendMode) {
       if (!center || !radius || radius < 3) return;
       const r = Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, radius * REALISM.IRIS_SHRINK));
@@ -498,6 +575,7 @@
       // !!!
 
       // Constructs a basic circle mask (the pupil/iris)
+      // Draw a white circular mask (used as base iris mask)
       function buildBaseMask(ctx, r, S) {
         
         ctx.save();
@@ -536,6 +614,7 @@
 // }
 
       // Constructs an eyelid mask (cuts out part of the eye according to the eyelid polygon)
+      // draws eyelid polygon into a context (white filled polygon in eye-local coords)
       function buildEyelidMask(ctx, lidPoly, center, S) {
         if (!lidPoly || lidPoly.length < 3) return;
       
@@ -554,7 +633,8 @@
         ctx.fill();
         ctx.restore();
       }
-
+      // earlier experimentation variant; attempts to apply destination-in to existing mask using eyelid polygon in eye-local coords
+      // (Note: this code is inconsistent: it uses eyeMaskCtx within the function though signature is ctx.)
       function buildEyelidPath(ctx, lidPoly, center, S) {
 
           // eyeCutCtx.save();
@@ -616,7 +696,7 @@
       }
 
       // F 1
-
+      // duplicated/alternate attempt that sets destination-in with polygon and fills white on eyeMaskCtx (experimental)
       function fOne(ctx, lidPoly, center, S){
          //  // fOne
         // Saves the current drawing state
@@ -663,6 +743,13 @@
     // eyeMaskLayer eyeMaskCtx eyeMaskFeather eyeMaskFeatherCtx eyeCutLayer eyeCutCtx eyeCutFeather eyeCutFeatherCtx
 
       // F 2
+
+      // clear flow used in current buildMask
+      // 1. Create eyeCutLayer: fill white full-rect, then destination-out the eyelid polygon so eyelid area becomes transparent (makes a cutout)
+      // 2.Blur that cut in eyeCutFeather (eyeCutFeatherCtx.filter blur)
+      // 3. Draw the feathered cut onto eyeMaskCtx with globalCompositeOperation = 'destination-out' to subtract the eyelid area from the main mask. This is the step that both clips and creates soft edges
+      // commented parts show experiments with globalAlpha to control clip strength
+
       function fTwo(ctx, lidPoly, center, S){
  // fTwo
         // 1️⃣  Create eyelid cut mask (no shadows)    
@@ -730,7 +817,7 @@
       }
 
       
-
+      // Draw source into ctx with blur filter for feathered mask
       function applyFeather(ctx, sourceCanvas, blurPx, S) {        
         ctx.save();
         ctx.clearRect(0, 0, S, S);
@@ -915,7 +1002,11 @@ Step	Purpose
       // make the file into 3 files - html, css and js
       // TODO - at the end when I finish compress the files like in vit - minifite 
 
-        
+      // constructs the final iris mask that combines circular base and eyelid cut if enabled
+      // 1. draw circular base into eyeMaskCtx
+      // 2. if eyelid mask enabled and lidPoly exists, call fTwo (which creates a cut and subtracts it)
+      // 3. feather the eyeMaskLayer into eyeMaskFeather
+
       (function buildMask(){
 
         
@@ -953,8 +1044,16 @@ Step	Purpose
 
 
 
-
+      
+  
+      // draw the color into eyeColorCtx
       (function drawColor(){
+      // TODO - check here for bug ("Clip circle")
+
+      // eyeColorCtx:
+      // clip to circle, set globalAlpha = alpha, fill with selected color
+      // punch pupil hole via destination-out with radius r * PUPIL_RATIO
+     
         const cx = eyeColorCtx;
         cx.save();
         cx.clearRect(0,0,S,S);
@@ -976,6 +1075,11 @@ Step	Purpose
         cx.restore();
       })();
 
+      // After drawColor, apply eyeMaskFeather to both eyeColorCtx and eyeShadeCtx by setting
+      // globalCompositeOperation = 'destination-in' and drawImage(eyeMaskFeather).
+      // This ensures color & shade appear only inside the feathered mask
+
+      // TODO - check here for bug ("destination-in")
 
       // Apply the masks
       eyeColorCtx.globalCompositeOperation = 'destination-in'; // Both the color and the shading will appear only within the eye shape.
@@ -1051,6 +1155,14 @@ Step	Purpose
     // Get the face points from the video and calculate the eye position in each frame
     function onFaceMeshResults(results) {
 
+      // Explanation:
+      // if no face landmarks: reset currentEyes and return.
+      // compute openL/openR via eyeOpenness,
+      // build eyelid polygons for left/right via buildEyeClip and smooth them,
+      // compute left/right iris centers and radii,
+      // bias centers, build next states for left/right (center, radius, open),
+      // smooth into currentEyes.left/right (so the overlay is not jumpy).
+
       // If no faces are found, reset the eye state and exit the function
       if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
         currentEyes = { left: null, right: null };
@@ -1083,8 +1195,7 @@ Step	Purpose
       const rightCenterRaw = calculateEyeCenter(landmarks, RIGHT_IRIS_RING, RIGHT_IRIS_CENTER);
       const rightRadiusRaw = calculateEyeRadius(rightCenterRaw, landmarks, RIGHT_IRIS_RING);
 
-      // Compares the current values ​​to the previous values ​​and smooths
-      // the motion so there are no "jumps" between frames
+      // smooth per-eye center/radius/open values using REALISM.SMOOTHING
       function smooth(prev, next){
         if (!prev) return next;
         const t = 1 - REALISM.SMOOTHING;
@@ -1111,6 +1222,16 @@ Step	Purpose
 
     // Handles video frames
     async function processVideoFrame() {
+
+    // Explanation:
+    // 1. returns early if not running or video not ready, otherwise draws current video frame to canvas.
+    // 2. sends the video frame to faceMesh.send({image: video})
+    // (FaceMesh will call onFaceMeshResults asynchronously).
+    // 3. reads color & alpha from UI, calculates blink gates per
+    // eye using smoothstep and BLINK thresholds, multiplies
+    // alpha by gate to fade when closing.
+    // 4. calls paintEye for left/right if alpha>threshold and eye data present.
+    // 5. requests next animation frame while running.
 
       if (!running || !video.videoWidth || !video.videoHeight) {
         if (running) animationId = requestAnimationFrame(processVideoFrame);
@@ -1152,6 +1273,13 @@ Step	Purpose
 
     // Loads and prepares the face recognition model
     async function initializeFaceMesh() {
+      // Explanation:
+      // 1. verifies FaceMesh exists, creates new FaceMesh with
+      // locateFile pointing to CDN, sets options (maxNumFaces,
+      // refineLandmarks, confidence thresholds), attaches
+      // onResults handler, and initialize if available.
+      // 2. returns true if successful, otherwise sets error status.
+
       try {
         setLoadingStatus('מאתחל זיהוי פנים');
 
@@ -1181,6 +1309,11 @@ Step	Purpose
     }
 
     async function startCamera() {
+      // Explanation:
+      // 1. checks secure context and getUserMedia support,
+      // 2. calls getUserMedia with ideal width/height/framerate, facingMode: 'user',
+      // 3. attaches stream to video, awaits video.ready, calls initializeFaceMesh, sets running = true, updates UI classes and buttons, starts processVideoFrame loop.
+      // 4. error handling: stops tracks and reports messages.
       try {
         // Security testing and support
         if (!isSecureContext()) { setStatus('דרוש HTTPS או localhost לגישה למצלמה', false); return; }
@@ -1249,6 +1382,9 @@ Step	Purpose
 
     // Turns off the camera, stops drawing loops, clears the canvas and UI
     function stopCamera() {
+      // Explanation:
+      // 1. stops loop, stops stream tracks, clears video.srcObject, resets currentEyes and canvas, updates UI and status.
+
       try {
         running = false; // Indicates that the system is no longer running
         if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
@@ -1266,6 +1402,16 @@ Step	Purpose
         setStatus('לחץ על "הפעל מצלמה" להתחלה');
       } catch (_) {}
     }
+
+
+   // UI bindings:
+
+   // Buttons: btnStartCenter -> startCamera, btnStop -> stopCamera.
+   // colorInp input -> updates palette background and tag, removes active chips.
+   // chips click -> sets colorInp, activates chip, closes palette.
+   // alphaInp input -> updates displayed alpha value.
+   // btnCapture -> snapshotAndDownload: exports canvas to PNG and triggers download.
+
 
     btnStartCenter.addEventListener('click', startCamera); 
     btnStop.addEventListener('click', stopCamera);
