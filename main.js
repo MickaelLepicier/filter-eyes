@@ -24,21 +24,63 @@ TODO - check here for bug:
 
 Where shadows / clipping issues likely arise:
 
-* The code contains many experiments toggling different compositing modes and masks. The main places affecting shadows / clipping are:
-  - The large commented shading block inside paintEye (creates inner glow, limbals, fibers, highlights and the pupil via destination-out). If enabled, it generates shading inside the eye.
-  - fTwo / buildEyelidMask / buildEyelidPath / usage of globalCompositeOperation when combining eyeCutFeather onto eyeMaskCtx. The choice of destination-in vs destination-out and the globalAlpha used when drawing the feathered cut controls whether the color is clipped by eyelids and whether a shadow-like soft edge remains.
-  - applyFeather uses ctx.filter = blur(...) which creates soft edges (appearing like shadows), and eyeCutFeatherCtx.drawImage(eyeCutLayer) will produce that feather. If you remove the blur/draw steps, clipping becomes hard (no soft shadow).
-  - The final composition on main canvas uses resolveBlendMode('overlay') etc. That can produce blend effects that look like shadows or darkening.
+* The code contains many experiments toggling different
+compositing modes and masks.The main places affecting
+shadows / clipping are:
+
+  - The large commented shading block inside paintEye
+  (creates inner glow, limbals, fibers, highlights and
+  the pupil via destination-out). If enabled,
+  it generates shading inside the eye.
+
+  - fTwo / buildEyelidMask / buildEyelidPath
+  / usage of globalCompositeOperation when combining
+  eyeCutFeather onto eyeMaskCtx. The choice of
+  destination-in vs destination-out and the
+  globalAlpha used when drawing the feathered
+  cut controls whether the color is clipped
+  by eyelids and whether a shadow-like soft
+  edge remains.
+  
+  - applyFeather uses ctx.filter = blur(...)
+  which creates soft edges (appearing like shadows),
+  and eyeCutFeatherCtx.drawImage(eyeCutLayer) will
+  produce that feather. If you remove the blur/draw
+  steps, clipping becomes hard (no soft shadow).
+  
+  
+  - The final composition on main canvas uses
+  resolveBlendMode('overlay') etc. That can produce
+  blend effects that look like shadows or darkening.
 
 * Short recommendation (if you want next steps)
 
-  - If you want "color without shadows but still clipped": remove or disable the shading block and remove any operations that composite darkening (EDGE_DARKEN, LIMBAL_ALPHA, drawing to eyeShadeLayer), and ensure fTwo uses destination-out to remove eyelid area from the mask but avoid blurring the cut or reduce blur to 0 (eyeCutFeatherCtx.filter = 'none') so no soft shadow remains.
-  - If you want "clip off when eye closed": ensure the eyelid polygon is drawn and applied to eyeMask before drawing the color, and keep eyeMaskCtx.globalAlpha = 1 when drawing the cut (so the cut fully removes pixels). Also ensure blink gate multiplies alpha so fully closed eye sets alpha to 0.
+  - If you want "color without shadows but still clipped":
+  remove or disable the shading block and remove any
+  operations that composite darkening
+  (EDGE_DARKEN, LIMBAL_ALPHA, drawing to eyeShadeLayer),
+  and ensure fTwo uses destination-out to remove eyelid
+  area from the mask but avoid blurring the cut or
+  reduce blur to 0 (eyeCutFeatherCtx.filter = 'none')
+  so no soft shadow remains.
+  
+  - If you want "clip off when eye closed":
+  ensure the eyelid polygon is drawn and
+  applied to eyeMask before drawing the color,
+  and keep eyeMaskCtx.globalAlpha = 1 when
+  drawing the cut (so the cut fully removes pixels).
+  Also ensure blink gate multiplies alpha so fully
+  closed eye sets alpha to 0.
   
 * If you want I can:
 
-  - produce a concise patch to fTwo/buildMask to remove shadow (reduce blur and avoid any dark shading),
-  - or simplify mask composition to a single destination-in mask that strictly clips color (no feather).
+  - produce a concise patch to fTwo/buildMask
+  to remove shadow (reduce blur and avoid any
+  dark shading),
+
+  - or simplify mask composition to a single
+  destination-in mask that strictly clips
+  color (no feather).
 
   Which do you prefer?
 */
@@ -751,7 +793,7 @@ Where shadows / clipping issues likely arise:
       // commented parts show experiments with globalAlpha to control clip strength
 
       function fTwo(ctx, lidPoly, center, S){
- // fTwo
+
         // 1️⃣  Create eyelid cut mask (no shadows)    
           eyeCutCtx.save();
           eyeCutCtx.clearRect(0,0,S,S);
@@ -998,8 +1040,7 @@ Step	Purpose
 6	    Feather the final result
 */
 
-      // TODOs:
-      // make the file into 3 files - html, css and js
+
       // TODO - at the end when I finish compress the files like in vit - minifite 
 
       // constructs the final iris mask that combines circular base and eyelid cut if enabled
@@ -1020,6 +1061,7 @@ Step	Purpose
           eyeMaskCtx.translate(S/2, S/2);
           eyeMaskCtx.beginPath();
 
+          
           // create a circular base mask
           // TODO - add if openL > 0.3 draw circle else clip it
           eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2); // make it circle
@@ -1080,6 +1122,7 @@ Step	Purpose
       // This ensures color & shade appear only inside the feathered mask
 
       // TODO - check here for bug ("destination-in")
+
 
       // Apply the masks
       eyeColorCtx.globalCompositeOperation = 'destination-in'; // Both the color and the shading will appear only within the eye shape.
