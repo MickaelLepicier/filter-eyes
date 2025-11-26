@@ -18,69 +18,29 @@
 
 // at the end compress this code that in HTML with js and css files
 
+// REAL TODO - CLEAN THE CODE + CHANGE THE NAME OF THE fTwo function
+
 /*
 TODO - check here for bug:
 
 
 Where shadows / clipping issues likely arise:
 
-* The code contains many experiments toggling different
-compositing modes and masks.The main places affecting
-shadows / clipping are:
-
-  - The large commented shading block inside paintEye
-  (creates inner glow, limbals, fibers, highlights and
-  the pupil via destination-out). If enabled,
-  it generates shading inside the eye.
-
-  - fTwo / buildEyelidMask / buildEyelidPath
-  / usage of globalCompositeOperation when combining
-  eyeCutFeather onto eyeMaskCtx. The choice of
-  destination-in vs destination-out and the
-  globalAlpha used when drawing the feathered
-  cut controls whether the color is clipped
-  by eyelids and whether a shadow-like soft
-  edge remains.
-  
-  - applyFeather uses ctx.filter = blur(...)
-  which creates soft edges (appearing like shadows),
-  and eyeCutFeatherCtx.drawImage(eyeCutLayer) will
-  produce that feather. If you remove the blur/draw
-  steps, clipping becomes hard (no soft shadow).
-  
-  
-  - The final composition on main canvas uses
-  resolveBlendMode('overlay') etc. That can produce
-  blend effects that look like shadows or darkening.
+* The code contains many experiments toggling different compositing modes and masks. The main places affecting shadows / clipping are:
+  - The large commented shading block inside paintEye (creates inner glow, limbals, fibers, highlights and the pupil via destination-out). If enabled, it generates shading inside the eye.
+  - fTwo / buildEyelidMask / buildEyelidPath / usage of globalCompositeOperation when combining eyeCutFeather onto eyeMaskCtx. The choice of destination-in vs destination-out and the globalAlpha used when drawing the feathered cut controls whether the color is clipped by eyelids and whether a shadow-like soft edge remains.
+  - applyFeather uses ctx.filter = blur(...) which creates soft edges (appearing like shadows), and eyeCutFeatherCtx.drawImage(eyeCutLayer) will produce that feather. If you remove the blur/draw steps, clipping becomes hard (no soft shadow).
+  - The final composition on main canvas uses resolveBlendMode('overlay') etc. That can produce blend effects that look like shadows or darkening.
 
 * Short recommendation (if you want next steps)
 
-  - If you want "color without shadows but still clipped":
-  remove or disable the shading block and remove any
-  operations that composite darkening
-  (EDGE_DARKEN, LIMBAL_ALPHA, drawing to eyeShadeLayer),
-  and ensure fTwo uses destination-out to remove eyelid
-  area from the mask but avoid blurring the cut or
-  reduce blur to 0 (eyeCutFeatherCtx.filter = 'none')
-  so no soft shadow remains.
-  
-  - If you want "clip off when eye closed":
-  ensure the eyelid polygon is drawn and
-  applied to eyeMask before drawing the color,
-  and keep eyeMaskCtx.globalAlpha = 1 when
-  drawing the cut (so the cut fully removes pixels).
-  Also ensure blink gate multiplies alpha so fully
-  closed eye sets alpha to 0.
+  - If you want "color without shadows but still clipped": remove or disable the shading block and remove any operations that composite darkening (EDGE_DARKEN, LIMBAL_ALPHA, drawing to eyeShadeLayer), and ensure fTwo uses destination-out to remove eyelid area from the mask but avoid blurring the cut or reduce blur to 0 (eyeCutFeatherCtx.filter = 'none') so no soft shadow remains.
+  - If you want "clip off when eye closed": ensure the eyelid polygon is drawn and applied to eyeMask before drawing the color, and keep eyeMaskCtx.globalAlpha = 1 when drawing the cut (so the cut fully removes pixels). Also ensure blink gate multiplies alpha so fully closed eye sets alpha to 0.
   
 * If you want I can:
 
-  - produce a concise patch to fTwo/buildMask
-  to remove shadow (reduce blur and avoid any
-  dark shading),
-
-  - or simplify mask composition to a single
-  destination-in mask that strictly clips
-  color (no feather).
+  - produce a concise patch to fTwo/buildMask to remove shadow (reduce blur and avoid any dark shading),
+  - or simplify mask composition to a single destination-in mask that strictly clips color (no feather).
 
   Which do you prefer?
 */
@@ -370,20 +330,6 @@ shadows / clipping are:
     // clamp between 0 and 1
     function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
 
-    // !!!
-    // function leftOpenness(L){
-    //   const up=L[159], low=L[145], l=L[33], r=L[133];
-    //   if(!up||!low||!l||!r) return 1; // Fallback – It is better not to turn off the screen in case of missing information
-    //   return clamp01( dist(pt(L,159),pt(L,145)) / Math.max(1, dist(pt(L,33),pt(L,133))) );
-    // }
-    // function rightOpenness(L){
-    //   const up=L[386], low=L[374], l=L[263], r=L[362];
-    //   if(!up||!low||!l||!r) return 1;
-    //   return clamp01( dist(pt(L,386),pt(L,374)) / Math.max(1, dist(pt(L,263),pt(L,362))) );
-    // }
-    // !!!
-
-
     // Eye geometry & smoothing:
 
     // returns normalized openness = vertical distance / horizontal distance
@@ -509,264 +455,7 @@ shadows / clipping are:
       const sideForMask = getEyeSide(center);
       const lidPoly = sideForMask && currentEyelids[sideForMask] ? currentEyelids[sideForMask] : null;
      
-
-      // Creates all the visual effects that turn a simple color circle into a "realistic eye":
-      // darkness at the edges, a black ring, fibers, rings, reflections, small noise, and a pupil in the center
-     
-      // // TODO - try to put it on comment
-      // // !!!
-      // (function drawShading(){
-      //   const sx = eyeShadeCtx;
-      //   sx.save();
-      //   sx.clearRect(0,0,S,S);
-      //   sx.translate(S/2, S/2);
-      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.closePath(); sx.clip();
-
-      //   sx.globalCompositeOperation = 'source-over';
-      //   sx.globalAlpha = REALISM.EDGE_DARKEN * alpha;
-      //   let g = sx.createRadialGradient(0,0, r*0.2, 0,0, r);
-      //   g.addColorStop(0, 'rgba(0,0,0,0)');
-      //   g.addColorStop(1, 'rgba(0,0,0,1)');
-      //   sx.fillStyle = g;
-      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
-
-      //   sx.globalAlpha = REALISM.INNER_GLOW * alpha;
-      //   g = sx.createRadialGradient(0,0, 0, 0,0, r*0.65);
-      //   g.addColorStop(0, 'rgba(255,255,255,1)');
-      //   g.addColorStop(1, 'rgba(255,255,255,0)');
-      //   sx.fillStyle = g;
-      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
-
-      //   sx.globalAlpha = REALISM.LIMBAL_ALPHA * alpha;
-      //   sx.beginPath();
-      //   sx.arc(0,0,r,0,Math.PI*2);
-      //   sx.lineWidth = Math.max(1, r * REALISM.LIMBAL_WIDTH);
-      //   sx.lineCap = 'round'; sx.lineJoin = 'round';
-      //   sx.strokeStyle = 'rgba(0,0,0,1)';
-      //   sx.stroke();
-
-      //   // Dark fibers in the iris
-      //   sx.globalAlpha = REALISM.FIBER_ALPHA * alpha;
-      //   sx.lineCap = 'round';
-      //   for (let i=0; i<REALISM.FIBER_COUNT; i++){
-      //     const jitter = (prand(100+i)-0.5) * REALISM.FIBER_JITTER;
-      //     const a = (i / REALISM.FIBER_COUNT) * Math.PI*2 + jitter;
-      //     const inner = r * REALISM.FIBER_INNER;
-      //     const outer = r * REALISM.FIBER_OUTER;
-      //     const x1 = Math.cos(a)*inner, y1 = Math.sin(a)*inner;
-      //     const x2 = Math.cos(a)*outer, y2 = Math.sin(a)*outer;
-      //     sx.beginPath(); sx.moveTo(x1,y1); sx.lineTo(x2,y2);
-      //     sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
-      //   }
-
-      //   // Illuminated fibers
-      //   sx.globalCompositeOperation = 'screen';
-      //   sx.globalAlpha = REALISM.FIBER_LIGHT_ALPHA * alpha;
-      //   sx.lineCap = 'round';
-      //   for (let i=0; i<REALISM.FIBER_COUNT; i++){
-      //     const jitter = (prand(1000+i)-0.5) * REALISM.FIBER_JITTER;
-      //     const a = (i / REALISM.FIBER_COUNT) * Math.PI*2 + jitter;
-      //     const inner = r * 0.252;
-      //     const outer = r * 0.931;
-      //     const x1 = Math.cos(a)*inner, y1 = Math.sin(a)*inner;
-      //     const x2 = Math.cos(a)*outer, y2 = Math.sin(a)*outer;
-      //     sx.beginPath(); sx.moveTo(x1,y1); sx.lineTo(x2,y2);
-      //     sx.lineWidth = 0.8; sx.strokeStyle = 'rgba(255,255,255,1)'; sx.stroke();
-      //   }
-
-      //   // Inner rings
-      //   sx.globalCompositeOperation = 'overlay';
-      //   sx.globalAlpha = REALISM.BAND_ALPHA * alpha;
-      //   for (let b=1; b<=REALISM.BAND_COUNT; b++){
-      //     const t = b/(REALISM.BAND_COUNT+1);
-      //     sx.beginPath();
-      //     sx.arc(0,0, r*(0.35 + t*0.55), 0, Math.PI*2);
-      //     sx.lineWidth = 1; sx.strokeStyle = 'rgba(0,0,0,1)'; sx.stroke();
-      //   }
-
-      //   // Light reflection
-      //   sx.globalAlpha = REALISM.HIGHLIGHT_ALPHA * alpha;
-      //   const hlr = r * 0.5;
-      //   const hx = - r*REALISM.HIGHLIGHT_OFFSET;
-      //   const hy = - r*REALISM.HIGHLIGHT_OFFSET;
-      //   const grad = sx.createRadialGradient(hx, hy, hlr*0.05, hx, hy, hlr);
-      //   grad.addColorStop(0, 'rgba(255,255,255,0.9)');
-      //   grad.addColorStop(1, 'rgba(255,255,255,0)');
-      //   sx.fillStyle = grad;
-      //   sx.beginPath(); sx.arc(0,0,r,0,Math.PI*2); sx.fill();
-
-      //   // Adds subtle "noise" so the eye doesn't look too smooth plastic
-      //   sx.globalAlpha = 0.06 * alpha;
-      //   sx.fillStyle = sx.createPattern(noiseCanvas, 'repeat');
-      //   sx.fillRect(-r, -r, r*2, r*2);
-
-      //   // The pupil hole
-      //   sx.globalCompositeOperation = 'destination-out';
-      //   sx.globalAlpha = 1;
-      //   sx.beginPath(); sx.arc(0,0, Math.max(2, r*REALISM.PUPIL_RATIO), 0, Math.PI*2); sx.fill();
-      //   sx.restore();
-      // })();
-      // // !!!
-
-      // const sideForMask = getEyeSide(center);
-      // const lidPoly = sideForMask && currentEyelids[sideForMask] ? currentEyelids[sideForMask] : null;
-     
-     
       ensureMaskSize(S);
-
-      // !!!
-
-      // Constructs a basic circle mask (the pupil/iris)
-      // Draw a white circular mask (used as base iris mask)
-      function buildBaseMask(ctx, r, S) {
-        
-        ctx.save();
-        ctx.clearRect(0, 0, S, S);
-        ctx.translate(S / 2, S / 2);
-        ctx.beginPath();
-        ctx.arc(0, 0, r, 0, Math.PI * 2);
-        ctx.fillStyle = 'rgba(255,255,255,1)';
-        ctx.fill();
-        ctx.restore();
-      }
-
-      //       function buildEyelidMask(ctx, lidPoly, center, S) {
-//   if (!lidPoly || lidPoly.length < 3) return;
-
-//   ctx.save();
-
-//   // Keep only the overlapping pixels (clip effect)
-//   ctx.globalCompositeOperation = 'destination-in';
-
-//   // Build the eyelid polygon in eye-local coordinates
-//   ctx.beginPath();
-//   ctx.translate(S / 2, S / 2);
-//   ctx.moveTo(lidPoly[0][0] - center[0], lidPoly[0][1] - center[1]);
-//   for (let i = 1; i < lidPoly.length; i++) {
-//     const p = lidPoly[i];
-//     ctx.lineTo(p[0] - center[0], p[1] - center[1]);
-//   }
-//   ctx.closePath();
-
-//   // Fill the clipping mask (white keeps, transparent removes)
-//   ctx.fillStyle = '#fff';
-//   ctx.fill();
-
-//   ctx.restore();
-// }
-
-      // Constructs an eyelid mask (cuts out part of the eye according to the eyelid polygon)
-      // draws eyelid polygon into a context (white filled polygon in eye-local coords)
-      function buildEyelidMask(ctx, lidPoly, center, S) {
-        if (!lidPoly || lidPoly.length < 3) return;
-      
-        ctx.save();
-        ctx.clearRect(0, 0, S, S);
-        ctx.translate(S / 2, S / 2);
-
-        ctx.beginPath();
-        ctx.moveTo(lidPoly[0][0] - center[0], lidPoly[0][1] - center[1]);
-        for (let i = 1; i < lidPoly.length; i++) {
-          const p = lidPoly[i];
-          ctx.lineTo(p[0] - center[0], p[1] - center[1]);
-        }
-        ctx.closePath();
-        ctx.fillStyle = 'rgba(255,255,255,1)';
-        ctx.fill();
-        ctx.restore();
-      }
-      // earlier experimentation variant; attempts to apply destination-in to existing mask using eyelid polygon in eye-local coords
-      // (Note: this code is inconsistent: it uses eyeMaskCtx within the function though signature is ctx.)
-      function buildEyelidPath(ctx, lidPoly, center, S) {
-
-          // eyeCutCtx.save();
-          // eyeCutCtx.clearRect(0,0,S,S);
-          // eyeCutCtx.translate(S/2, S/2);
-          // eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
-          // eyeCutCtx.fillRect(-S/2, -S/2, S, S);
-          // eyeCutCtx.globalCompositeOperation = 'destination-out';
-          // eyeCutCtx.beginPath();
-          // eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
-          // for (let i=1;i<lidPoly.length;i++){
-          //   const p = lidPoly[i];
-          //   eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
-          // }
-          // eyeCutCtx.closePath();
-          // eyeCutCtx.fill();
-          // eyeCutCtx.restore();
-
-          // eyeCutFeatherCtx.save();
-          // eyeCutFeatherCtx.clearRect(0,0,S,S);
-          // try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
-          // eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
-          // try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
-          // eyeCutFeatherCtx.restore();
-
-          // eyeMaskCtx.save();
-          // eyeMaskCtx.globalCompositeOperation = 'destination-out';
-          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
-          // eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
-          // eyeMaskCtx.restore();
-
-
-        //  // fOne
-        // Saves the current drawing state
-        ctx.save();
-
-        // Only keep the existing pixels (destination)
-        ctx.globalCompositeOperation = 'destination-in';
-
-        // Starts a new drawing path (for the polygon we’re about to draw)
-        ctx.beginPath();
-       
-        // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
-        ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
-        for (let i = 1; i < lidPoly.length; i++) {
-          const p = lidPoly[i];
-          ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
-        }
-        ctx.closePath();
-        
-        // Fill color white
-        eyeMaskCtx.fillStyle = '#fff';
-        
-        // Fills the polygon with white.
-        eyeMaskCtx.fill();
-
-        // Restores the previous drawing state (undoing the composition mode and any transformations).
-        eyeMaskCtx.restore();
-      }
-
-      // F 1
-      // duplicated/alternate attempt that sets destination-in with polygon and fills white on eyeMaskCtx (experimental)
-      function fOne(ctx, lidPoly, center, S){
-         //  // fOne
-        // Saves the current drawing state
-        ctx.save();
-
-        // Only keep the existing pixels (destination)
-        ctx.globalCompositeOperation = 'destination-in';
-
-        // Starts a new drawing path (for the polygon we’re about to draw)
-        ctx.beginPath();
-       
-        // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
-        ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
-        for (let i = 1; i < lidPoly.length; i++) {
-          const p = lidPoly[i];
-          ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
-        }
-        ctx.closePath();
-        
-        // Fill color white
-        eyeMaskCtx.fillStyle = '#fff';
-        
-        // Fills the polygon with white.
-        eyeMaskCtx.fill();
-
-        // Restores the previous drawing state (undoing the composition mode and any transformations).
-        eyeMaskCtx.restore();
-      }
 
 // the eyeMaskCtx.globalCompositeOperation = ''
 
@@ -783,8 +472,6 @@ shadows / clipping are:
 // source-atop
 
     // eyeMaskLayer eyeMaskCtx eyeMaskFeather eyeMaskFeatherCtx eyeCutLayer eyeCutCtx eyeCutFeather eyeCutFeatherCtx
-
-      // F 2
 
       // clear flow used in current buildMask
       // 1. Create eyeCutLayer: fill white full-rect, then destination-out the eyelid polygon so eyelid area becomes transparent (makes a cutout)
@@ -842,18 +529,10 @@ shadows / clipping are:
 
 
      
-          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH));
+          // ↓ Control clip strength here (1 = full clip, 0 = none) // 1 - 0.5 - 0.9
+          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH)); 
  
           
-          // // ↓ Control clip strength here (1 = full clip, 0 = none)
-
-          // eyeMaskCtx.globalAlpha = 1; // good-clip bad-left eye
-         
-
-          // eyeMaskCtx.globalAlpha = 0.5; // good-clip bad-left eye
-
-          // eyeMaskCtx.globalAlpha = 0.9; // good-clip bad-left eye
-         
           eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
           eyeMaskCtx.restore();
       }
@@ -868,166 +547,6 @@ shadows / clipping are:
         ctx.restore();
         try { ctx.filter = 'none'; } catch (_) {}
       }
-      
- 
-
-
-  // function buildEyelidPath(ctx, lidPoly, center, S) {
-  //       ctx.save();
-  //       ctx.globalCompositeOperation = 'destination-in';
-
-  //       // lidPoly = [{x,y}, ...]; center = {x,y}
-  //       ctx.beginPath();
-  //       // draw polygon in the eye-local coordinates (layer is S×S, eye center is S/2,S/2)
-  //       ctx.moveTo(lidPoly[0].x - center.x + S/2, lidPoly[0].y - center.y + S/2);
-  //       for (let i = 1; i < lidPoly.length; i++) {
-  //         const p = lidPoly[i];
-  //         ctx.lineTo(p.x - center.x + S/2, p.y - center.y + S/2);
-  //       }
-  //       ctx.closePath();
-        
-  //       eyeMaskCtx.fillStyle = '#fff';
-  //       eyeMaskCtx.fill();
-  //       eyeMaskCtx.restore();
-  //     }
-
-      // !!!
-
-
-      // OPTION 1
-      // basic colors good with both eyes
-      // bug - when there is one eye the color is still shows 
-      // 3/10
-
-      // (function buildMask(){
-
-      //   // Step 1 – Basic Circle Mask
-      //   buildBaseMask(eyeMaskCtx, r, S);
-
-      //   // Step 2 – If there are eyelids → Create an eyelid mask
-      //   // Cutting by eyelid
-      //   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
-
-      //     buildEyelidMask(eyeCutCtx, lidPoly, center, S);
-
-      //     // Add the blur layer to the mask itself - this creates a situation
-      //     // where the mask takes into account the closing of the eyelids
- 
-      //     applyFeather(eyeCutFeatherCtx, eyeCutLayer, EYELID_MASK.BLUR_PX, S);
-      //   }
-
-      //   // Step 3 – Blur the overall mask
-      //   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
-
-      // })();
-
-
-
-    // !!!!
-    // row code from the good filter - 8.9
-
-
-// OPTION 2
-// clip colored
-// bug - when there is one eye the color is still shows 
-// bug - left eye not good
-// 6/10
-
-// (function buildMask(){
-
-//   eyeMaskCtx.save();
-//   eyeMaskCtx.clearRect(0,0,S,S);
-//   eyeMaskCtx.translate(S/2, S/2);
-//   eyeMaskCtx.beginPath();
-//   eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
-//   eyeMaskCtx.fillStyle = '#fff';
-//   eyeMaskCtx.fill();
-//   eyeMaskCtx.restore();
-
-//   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
-//     buildEyelidPath(eyeMaskCtx, lidPoly, center, S);
-//   }
-
-//   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
-
-// })();
-
-
-// OPTION 3
-// clip colored
-// bug - left eye not good
-// bug - when there is one eye the color is still shows 
-// 5/10
-
-// (function buildMask(){
-
-//  eyeMaskCtx.save();
-//   eyeMaskCtx.clearRect(0,0,S,S);
-//   eyeMaskCtx.translate(S/2, S/2);
-//   eyeMaskCtx.beginPath();
-//   eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2);
-//   eyeMaskCtx.fillStyle = '#fff';
-//   eyeMaskCtx.fill();
-//   eyeMaskCtx.restore();
-
-//   if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
-
-//        eyeCutCtx.save();
-//           eyeCutCtx.clearRect(0,0,S,S);
-//           eyeCutCtx.translate(S/2, S/2);
-
-//       // Calculates a shrink eyelid shape
-//           const shrink = (r > 0) ? Math.max(0, (r - (EYELID_MASK.MARGIN_PX||0)) / r) : 1;
-    
-//       // Starts a new path
-//           eyeCutCtx.beginPath();
-
-//       // Draws a polygon shape
-//           eyeCutCtx.moveTo((lidPoly[0].x - center.x) * shrink, (lidPoly[0].y - center.y) * shrink);
-     
-//           for (let i=1;i<lidPoly.length;i++){
-//             const p = lidPoly[i];
-//             eyeCutCtx.lineTo((p.x - center.x) * shrink, (p.y - center.y) * shrink);
-//           }
-//           eyeCutCtx.closePath();
-      
-//           eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
-//           eyeCutCtx.fill();
-
-//       // Restores the previous drawing state
-//           eyeCutCtx.restore();
-
-//           eyeCutFeatherCtx.save();
-//           eyeCutFeatherCtx.clearRect(0,0,S,S);
-//           try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
-//           eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
-//           try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
-//           eyeCutFeatherCtx.restore();
-
-//           eyeMaskCtx.save();
-//           eyeMaskCtx.globalCompositeOperation = 'destination-in';
-//           eyeMaskCtx.globalAlpha = 1;
-//           eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
-//           eyeMaskCtx.restore();
-
-//     }
-
-//   applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
-  
-//  })();
-
-
-// TODO - take this option and add clip
-// in OPTION 2 there is a good clip
-// take the code from OPTION 2 and understand it and add what I need
-
-// OPTION 4
-// basic colors good with both eyes with good shadow inside
-// bug - left eye color less good
-// bug - when there is one eye the color is still shows 
-// need clip the color
-// 8/10
-
 
 
 /*
@@ -1040,7 +559,6 @@ Step	Purpose
 6	    Feather the final result
 */
 
-
       // TODO - at the end when I finish compress the files like in vit - minifite 
 
       // constructs the final iris mask that combines circular base and eyelid cut if enabled
@@ -1050,10 +568,6 @@ Step	Purpose
 
       (function buildMask(){
 
-        
-        // here it create cirlce maks, I can add if (the eye small clip it, ) - עדיף לעשות יחס, כדי 
-        // 
-        // cosinus and sinus function
 
         // Create a circular white mask base
           eyeMaskCtx.save();
@@ -1061,7 +575,6 @@ Step	Purpose
           eyeMaskCtx.translate(S/2, S/2);
           eyeMaskCtx.beginPath();
 
-          
           // create a circular base mask
           // TODO - add if openL > 0.3 draw circle else clip it
           eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2); // make it circle
@@ -1073,8 +586,6 @@ Step	Purpose
 
         // Check if eyelid masking should happen
           if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
-
-            // fOne(eyeMaskCtx, lidPoly, center, S);
 
             fTwo(eyeCutCtx, lidPoly, center, S)
 
@@ -1090,7 +601,6 @@ Step	Purpose
   
       // draw the color into eyeColorCtx
       (function drawColor(){
-      // TODO - check here for bug ("Clip circle")
 
       // eyeColorCtx:
       // clip to circle, set globalAlpha = alpha, fill with selected color
@@ -1121,9 +631,6 @@ Step	Purpose
       // globalCompositeOperation = 'destination-in' and drawImage(eyeMaskFeather).
       // This ensures color & shade appear only inside the feathered mask
 
-      // TODO - check here for bug ("destination-in")
-
-
       // Apply the masks
       eyeColorCtx.globalCompositeOperation = 'destination-in'; // Both the color and the shading will appear only within the eye shape.
       eyeColorCtx.drawImage(eyeMaskFeather, 0, 0);
@@ -1132,53 +639,6 @@ Step	Purpose
 
       ctx.save();
 
-      // !!!
-      
-
-// // 1. Clip to the iris circle at the correct position
-// ctx.beginPath();
-// ctx.arc(center.x, center.y, r, 0, Math.PI * 2);
-// ctx.closePath();
-
-// // 2. If eyelid polygon exists, intersect with it
-// if (lidPoly && lidPoly.length >= 3) {
-//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
-//   for (let i = 1; i < lidPoly.length; i++) {
-//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
-//   }
-//   ctx.closePath();
-// }
-// ctx.clip();
-
-
-// Only clip with eyelid polygon (in canvas coordinates)
-
-// if (lidPoly && lidPoly.length >= 3) {
-//   ctx.save();
-//   ctx.beginPath();
-//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
-//   for (let i = 1; i < lidPoly.length; i++) {
-//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
-//   }
-//   ctx.closePath();
-//   ctx.strokeStyle = 'red';
-//   ctx.lineWidth = 2;
-//   ctx.stroke();
-//   ctx.restore();
-// }
-
-
-// if (lidPoly && lidPoly.length >= 3) {
-//   ctx.beginPath();
-//   ctx.moveTo(lidPoly[0].x, lidPoly[0].y);
-//   for (let i = 1; i < lidPoly.length; i++) {
-//     ctx.lineTo(lidPoly[i].x, lidPoly[i].y);
-//   }
-//   ctx.closePath();
-//   ctx.clip();
-// }
-
-      // !!!
 
       // Draw the iris filter layers
       ctx.globalAlpha = 1;
@@ -1213,12 +673,6 @@ Step	Purpose
       }
 
       const landmarks = results.multiFaceLandmarks[0];
-
-      // !!!
-      // Calculate how open the eyes are
-      // const openL = leftOpenness(landmarks);
-      // const openR = rightOpenness(landmarks);
-      // !!!
 
       // Calculate how open the eyes are
       const openL = eyeOpenness(landmarks, 159, 145, 33, 133);
@@ -1370,22 +824,14 @@ Step	Purpose
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user', // Front camera (selfie)
-
             // Ideal quality and frame settings
             width:  { ideal: 640, max: 1280 },
             height: { ideal: 480, max: 720 },
             frameRate: { ideal: 30, max: 60 }
-
-          // aspectRatio: { ideal: 9 / 16 },
-          // width:  { ideal: 1080 },
-          // height: { ideal: 1920 },
-
           },
           audio: false
         }
       );
- 
-
 
         // Connecting the video to the browser
         video.srcObject = stream;
