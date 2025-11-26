@@ -1,51 +1,9 @@
 (function(){
     'use strict';
 
-// TODOs:
-// write what is the BUG:
 // BUG 1 -> good clip, bad shadows
 // or
 // BUG 2 -> good color, bad clip
-
-// check what the mesh-face libarary can do - 1 hour:
-
-// In this code I use the Attention Mesh Model that use more power but more accurate - refine_landmarks 
-
-// FOR TODAY - read the article as the ChatGPT suggest 
-
-// check the flow of the code - 2 hours
-// check how can I put the color filter without the shadows and with clipping
-
-// at the end compress this code that in HTML with js and css files
-
-// REAL TODO - CLEAN THE CODE + CHANGE THE NAME OF THE fTwo function
-
-/*
-TODO - check here for bug:
-
-
-Where shadows / clipping issues likely arise:
-
-* The code contains many experiments toggling different compositing modes and masks. The main places affecting shadows / clipping are:
-  - The large commented shading block inside paintEye (creates inner glow, limbals, fibers, highlights and the pupil via destination-out). If enabled, it generates shading inside the eye.
-  - fTwo / buildEyelidMask / buildEyelidPath / usage of globalCompositeOperation when combining eyeCutFeather onto eyeMaskCtx. The choice of destination-in vs destination-out and the globalAlpha used when drawing the feathered cut controls whether the color is clipped by eyelids and whether a shadow-like soft edge remains.
-  - applyFeather uses ctx.filter = blur(...) which creates soft edges (appearing like shadows), and eyeCutFeatherCtx.drawImage(eyeCutLayer) will produce that feather. If you remove the blur/draw steps, clipping becomes hard (no soft shadow).
-  - The final composition on main canvas uses resolveBlendMode('overlay') etc. That can produce blend effects that look like shadows or darkening.
-
-* Short recommendation (if you want next steps)
-
-  - If you want "color without shadows but still clipped": remove or disable the shading block and remove any operations that composite darkening (EDGE_DARKEN, LIMBAL_ALPHA, drawing to eyeShadeLayer), and ensure fTwo uses destination-out to remove eyelid area from the mask but avoid blurring the cut or reduce blur to 0 (eyeCutFeatherCtx.filter = 'none') so no soft shadow remains.
-  - If you want "clip off when eye closed": ensure the eyelid polygon is drawn and applied to eyeMask before drawing the color, and keep eyeMaskCtx.globalAlpha = 1 when drawing the cut (so the cut fully removes pixels). Also ensure blink gate multiplies alpha so fully closed eye sets alpha to 0.
-  
-* If you want I can:
-
-  - produce a concise patch to fTwo/buildMask to remove shadow (reduce blur and avoid any dark shading),
-  - or simplify mask composition to a single destination-in mask that strictly clips color (no feather).
-
-  Which do you prefer?
-*/
-
-
 
 
     // const TARGET_ASPECT = 9 / 16; // יחס יעד: 9:16
