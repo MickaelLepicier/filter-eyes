@@ -6,8 +6,6 @@
 // BUG 2 -> good color, bad clip
 
 
-    // const TARGET_ASPECT = 9 / 16; // יחס יעד: 9:16
-
     const video = document.getElementById('efw-video');
     const canvas = document.getElementById('efw-canvas'); 
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -154,15 +152,16 @@
     noiseCanvas.width = 64;
     noiseCanvas.height = 64;
     
+    // TODO - check without this function
     // populates noiseCanvas with low-alpha gray noise used subtly in iris texture
-    (function buildNoise(){
-      const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
-      for (let i=0; i<img.data.length; i+=4){
-        const v = 120 + Math.floor(Math.random()*16);
-        img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 10;
-      }
-      noiseCtx.putImageData(img, 0, 0);
-    })();
+    // (function buildNoise(){
+    //   const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
+    //   for (let i=0; i<img.data.length; i+=4){
+    //     const v = 120 + Math.floor(Math.random()*16);
+    //     img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 10;
+    //   }
+    //   noiseCtx.putImageData(img, 0, 0);
+    // })();
 
 
     // TODO - here are some shadows. check if the shadows are created here
@@ -393,7 +392,7 @@
    // colored iris onto the main canvas at given center:
    // calculates r (shrunk iris radius) and S (working size),
    // ensures layers sized,
-   // builds mask (circular + eyelid cut via fTwo),
+   // builds mask (circular + eyelid cut via buildEyelidMask),
    // draws the color into eyeColorLayer (drawColor),
    // uses destination-in compositing to apply mask to eyeColorLayer and eyeShadeLayer,
    
@@ -437,14 +436,15 @@
       // 3. Draw the feathered cut onto eyeMaskCtx with globalCompositeOperation = 'destination-out' to subtract the eyelid area from the main mask. This is the step that both clips and creates soft edges
       // commented parts show experiments with globalAlpha to control clip strength
 
-      function fTwo(ctx, lidPoly, center, S){
+      function buildEyelidMask(ctx, lidPoly, center, S){
 
         // 1️⃣  Create eyelid cut mask (no shadows)    
           eyeCutCtx.save();
-          eyeCutCtx.clearRect(0,0,S,S);
+          // eyeCutCtx.clearRect(0,0,S,S);
           eyeCutCtx.translate(S/2, S/2);
       
       // `````
+      // TODO - The problem is here
 
           // White background — this defines the area that will be clipped out (square)
           eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
@@ -499,11 +499,11 @@
       // Draw source into ctx with blur filter for feathered mask
       function applyFeather(ctx, sourceCanvas, blurPx, S) {        
         ctx.save();
-        ctx.clearRect(0, 0, S, S);
-        try { ctx.filter = `blur(${blurPx}px)`; } catch (_) {}
+        // ctx.clearRect(0, 0, S, S);
+        // try { ctx.filter = `blur(${blurPx}px)`; } catch (_) {}
         ctx.drawImage(sourceCanvas, 0, 0);
-        ctx.restore();
         try { ctx.filter = 'none'; } catch (_) {}
+        ctx.restore();
       }
 
 
@@ -521,11 +521,34 @@ Step	Purpose
 
       // constructs the final iris mask that combines circular base and eyelid cut if enabled
       // 1. draw circular base into eyeMaskCtx
-      // 2. if eyelid mask enabled and lidPoly exists, call fTwo (which creates a cut and subtracts it)
+      // 2. if eyelid mask enabled and lidPoly exists, call buildEyelidMask (which creates a cut and subtracts it)
       // 3. feather the eyeMaskLayer into eyeMaskFeather
+
+
+      // בין פריים לפריים תרשום איזה פיל עשית בקודם
+      // about clear rect 
+      // make it not to make always as a circle
+      // the problem is in the mask
+      // change the polygon 
+
+      // draw something else instead of CIRCLE
+
+      // comment code that don't have an effect
+
+      // TODOs:
+      // - comment code that don't have an effect 
+      // - understand where I get the dots in the code
+      // - draw not as a circle but as it should be in the  
 
       (function buildMask(){
 
+        // TODO - check each line and do try and error
+        // until you will have a color with clip
+
+        // control the code, if you want to draw a specific dots 
+        // (when I do X then Y happens)
+        
+        // always change one thing and check (Never multiple) 
 
         // Create a circular white mask base
           eyeMaskCtx.save();
@@ -534,9 +557,8 @@ Step	Purpose
           eyeMaskCtx.beginPath();
 
           // create a circular base mask
-          // TODO - add if openL > 0.3 draw circle else clip it
-          eyeMaskCtx.arc(0, 0, r, 0, Math.PI*2); // make it circle
-          eyeMaskCtx.fillStyle = '#fff';
+          eyeMaskCtx.arc(0, 0, r, 0, 2 * Math.PI); // make it circle
+          // eyeMaskCtx.fillStyle = '#fff';
           eyeMaskCtx.fill();
           
           eyeMaskCtx.restore();
@@ -545,7 +567,8 @@ Step	Purpose
         // Check if eyelid masking should happen
           if (EYELID_MASK.ENABLED && lidPoly && lidPoly.length >= 3){
 
-            fTwo(eyeCutCtx, lidPoly, center, S)
+            // the shadows are creating here
+            buildEyelidMask(eyeCutCtx, lidPoly, center, S)
 
             }
           // Apply final feathering to the mask itself
