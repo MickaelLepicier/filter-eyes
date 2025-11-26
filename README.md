@@ -112,8 +112,9 @@ The rendering is built from multiple offscreen canvas layers:
 
 1. Download the code
 1. Open the folder with VSCode
-2. In VSCode right click on main.html
-3. Click on "Open With Live Server"
+2. Install Live Server extension
+3. In VSCode right click on main.html
+4. Click on "Open With Live Server"
 
 ---
 
