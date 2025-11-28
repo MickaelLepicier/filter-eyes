@@ -6,6 +6,61 @@
 // BUG 2 -> good color, bad clip
 
 
+// TODO DEBUGGING:
+// ---
+
+function debug_drawDotsEyelids(ctx, currentEyelids) {
+  ctx.fillStyle = '#FF0000';
+  for (const pt of currentEyelids.left) {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  for (const pt of currentEyelids.right) {
+    ctx.beginPath();
+    ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+    ctx.fill();
+  }
+}
+// TODO - look at the right eye its not perfect like the eye, fix it by changing the  RIGHT_EYE_LOWER
+function debug_drawEyelids(ctx, currentEyes, currentEyelids) {
+  
+  if (currentEyes.left && currentEyelids.left) {
+    ctx.strokeStyle = '#00FF00';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(currentEyelids.left[0].x, currentEyelids.left[0].y);
+  
+    for (let i = 1; i < currentEyelids.left.length; i++) {
+      ctx.lineTo(currentEyelids.left[i].x, currentEyelids.left[i].y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+  
+    if (currentEyes.right && currentEyelids.right) {
+    ctx.strokeStyle = '#00fff2ff';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(currentEyelids.right[0].x, currentEyelids.right[0].y);
+  
+    for (let i = 1; i < currentEyelids.right.length; i++) {
+      ctx.lineTo(currentEyelids.right[i].x, currentEyelids.right[i].y);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  }
+// debug_drawDotsEyelids(ctx, currentEyelids);
+}
+
+
+
+
+
+// --- 
+
+
     const video = document.getElementById('efw-video');
     const canvas = document.getElementById('efw-canvas'); 
     const ctx = canvas.getContext('2d', { alpha: false });
@@ -244,8 +299,11 @@
     const RIGHT_IRIS_CENTER = 477;
     const LEFT_EYE_UPPER = [159,158,157,173,133];
     const LEFT_EYE_LOWER = [145,144,163,7,33];
-    const RIGHT_EYE_UPPER = [386,385,384,398,263];
-    const RIGHT_EYE_LOWER = [374,380,381,382,362];
+    const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
+    const RIGHT_EYE_LOWER = [382,381,380,374,263]; //
+    // const RIGHT_EYE_UPPER = [386,385,384,398,263];
+    // const RIGHT_EYE_LOWER = [374,380,381,382,362];
+
 
     // Show message to the user:
     // show status text and style
@@ -359,7 +417,7 @@
       const up = ptsFromIndices(landmarks, upperIdx);
       const low = ptsFromIndices(landmarks, lowerIdx);
       if (up.length < 2 || low.length < 2) return null;
-      return up.concat([...low].reverse());
+       return up.concat(low); 
     }
 
     // decide whether a detected center is left or right eye by comparing to currentEyes centers
@@ -744,9 +802,32 @@ Step	Purpose
         // Draws a color/effect on the pupil
         if (alphaL > 0.01 && currentEyes.left)  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
         if (alphaR > 0.01 && currentEyes.right) paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
+
+        debug_drawEyelids(ctx, currentEyes, currentEyelids)
+
+//         if (currentEyes.left && currentEyelids.left) {
+//   ctx.strokeStyle = '#00FF00';
+//   ctx.lineWidth = 1;
+//   ctx.beginPath();
+//   ctx.moveTo(currentEyelids.left[0].x, currentEyelids.left[0].y);
+//   for (let i = 1; i < currentEyelids.left.length; i++) {
+//     ctx.lineTo(currentEyelids.left[i].x, currentEyelids.left[i].y);
+//   }
+//   ctx.closePath();
+//   ctx.stroke();
+// }
+
+// ctx.fillStyle = '#FF0000';
+// for (const pt of currentEyelids.left) {
+//   ctx.beginPath();
+//   ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+//   ctx.fill();
+// }
       }
 
       if (running) animationId = requestAnimationFrame(processVideoFrame);
+
+      
     }
 
     // Loads and prepares the face recognition model
