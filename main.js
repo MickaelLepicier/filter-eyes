@@ -13,16 +13,20 @@ function debug_drawDotsEyelids(ctx, currentEyelids) {
   ctx.fillStyle = '#FF0000';
   for (const pt of currentEyelids.left) {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
+    ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 
   for (const pt of currentEyelids.right) {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 8, 0, Math.PI * 2);
+    ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
     ctx.fill();
   }
 }
+     
+// TODO - there are 10 dots on the left eye and 9 on the right eye 
+// and the order is not very good at the right eye - check why
+
 // TODO - look at the right eye its not perfect like the eye, fix it by changing the  RIGHT_EYE_LOWER
 function debug_drawEyelids(ctx, currentEyes, currentEyelids) {
   
@@ -51,14 +55,86 @@ function debug_drawEyelids(ctx, currentEyes, currentEyelids) {
     ctx.closePath();
     ctx.stroke();
   }
-// debug_drawDotsEyelids(ctx, currentEyelids);
+debug_drawDotsEyelids(ctx, currentEyelids);
+}
+
+
+// debug: draw all landmarks (dots + optional index labels)
+function debug_drawAllLandmarks(ctx, landmarks, { showIndex = false, color = 'red', size = 2 } = {}) {
+    if (!landmarks || !landmarks.length) return;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1;
+    ctx.font = '10px sans-serif';
+    for (let i = 0; i < landmarks.length; i++) {
+        const p = landmarks[i];
+        // convert normalized coords -> canvas coords
+        const x = Math.round(p.x * canvas.width);
+        const y = Math.round(p.y * canvas.height);
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI * 2);
+        ctx.fill();
+        if (showIndex) {
+            // small offset so number doesn't overlap the dot
+            ctx.fillText(String(i), x + size + 1, y - size - 1);
+        }
+    }
+    ctx.restore();
+}
+
+// debug: print landmark list to console (useful to export)
+function debug_logLandmarks(landmarks) {
+    if (!landmarks) return;
+    const pts = landmarks.map((p, i) => ({ i, x: p.x * canvas.width, y: p.y * canvas.height, z: p.z }));
+    console.table(pts);
+}
+
+
+// debug: return array of indices whose projected position is within px radius of a center landmark
+function debug_getLandmarksNear(landmarks, centerIdx, pxRadius = 40){
+    if (!landmarks || !landmarks[centerIdx]) return [];
+    const cx = landmarks[centerIdx].x * canvas.width;
+    const cy = landmarks[centerIdx].y * canvas.height;
+    const out = [];
+    for (let i = 0; i < landmarks.length; i++){
+        const p = landmarks[i];
+        const x = p.x * canvas.width, y = p.y * canvas.height;
+        const d = Math.hypot(x - cx, y - cy);
+        if (d <= pxRadius) out.push(i);
+    }
+    return out;
+}
+
+// debug: draw small numbered dots for a list of indices
+function debug_drawIndices(ctx, landmarks, indices, { color = 'cyan', size = 2 } = {}){
+    if (!landmarks || !indices || !indices.length) return;
+    ctx.save();
+    ctx.fillStyle = color;
+    ctx.strokeStyle = color;
+    ctx.font = '10px sans-serif';
+    for (const i of indices){
+        const p = landmarks[i];
+        const x = Math.round(p.x * canvas.width);
+        const y = Math.round(p.y * canvas.height);
+        ctx.beginPath();
+        ctx.arc(x, y, size, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillText(String(i), x + size + 1, y - size - 1);
+    }
+    ctx.restore();
+}
+
+// helper that returns a union of predefined eye indices (upper+lower+iris ring)
+function debug_getKnownEyeIndices(side = 'left'){
+    if (side === 'left') return Array.from(new Set([].concat(LEFT_EYE_UPPER, LEFT_EYE_LOWER, LEFT_IRIS_RING, [LEFT_IRIS_CENTER])));
+    return Array.from(new Set([].concat(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER, RIGHT_IRIS_RING, [RIGHT_IRIS_CENTER])));
 }
 
 
 
 
-
-// --- 
+// ---
 
 
     const video = document.getElementById('efw-video');
@@ -712,12 +788,29 @@ Step	Purpose
       }
 
       const landmarks = results.multiFaceLandmarks[0];
+      // TODO - delete debug functions
+    // debug_drawAllLandmarks draws dots + indices on the main canvas
+    // debug_drawAllLandmarks(ctx, landmarks, { showIndex: true, color: '#ff0000', size: 2 });
 
+    // debug_logLandmarks(landmarks); // uncomment to print coordinates to console
+      // debug_drawIndices(ctx, landmarks, RIGHT_EYE_LOWER);
+      // debug_getKnownEyeIndices();
+           
+     const leftUpIdx = LEFT_EYE_UPPER[0];
+     const leftLowIdx = LEFT_EYE_LOWER[0];
+     const leftLeftIdx = LEFT_EYE_LOWER[LEFT_EYE_LOWER.length -1];
+     const leftRightIdx = LEFT_EYE_UPPER[LEFT_EYE_UPPER.length -1];
+     
+     const rightUpIdx = RIGHT_EYE_UPPER[0];
+     const rightLowIdx = RIGHT_EYE_LOWER[0];
+     const rightLeftIdx = RIGHT_EYE_LOWER[RIGHT_EYE_LOWER.length -1];
+     const rightRightIdx = RIGHT_EYE_UPPER[RIGHT_EYE_UPPER.length -1];
+     
       // Calculate how open the eyes are
-      const openL = eyeOpenness(landmarks, 159, 145, 33, 133);
-      const openR = eyeOpenness(landmarks, 386, 374, 263, 362);
-
-
+      const openL = eyeOpenness(landmarks, leftUpIdx, leftLowIdx, leftLeftIdx, leftRightIdx);
+      const openR = eyeOpenness(landmarks, rightUpIdx, rightLowIdx, rightLeftIdx, rightRightIdx);
+      //            eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx)
+      
       const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
       const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
       currentEyelids.left  = smoothPoly(currentEyelids.left,  leftRawPoly);
