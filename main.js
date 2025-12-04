@@ -13,13 +13,13 @@ function debug_drawDotsEyelids(ctx, currentEyelids) {
   ctx.fillStyle = '#FF0000';
   for (const pt of currentEyelids.left) {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+    ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
     ctx.fill();
   }
 
   for (const pt of currentEyelids.right) {
     ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 2, 0, Math.PI * 2);
+    ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -131,6 +131,113 @@ function debug_getKnownEyeIndices(side = 'left'){
     return Array.from(new Set([].concat(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER, RIGHT_IRIS_RING, [RIGHT_IRIS_CENTER])));
 }
 
+// LIST OF ALL THE DOTS THAT ARE IN THE RIGHT EYE
+
+// debug helpers: list & draw every landmark that belongs to the right eye
+const DEBUG_SHOW_RIGHT_EYE = true;
+
+function debug_pointInPoly(point, poly){
+    // ray-casting / winding test
+    if (!poly || !poly.length) return false;
+    let x = point.x, y = point.y, inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+        const xi = poly[i].x, yi = poly[i].y;
+        const xj = poly[j].x, yj = poly[j].y;
+        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi + 0.0000001) + xi);
+        if (intersect) inside = !inside;
+    }
+    return inside;
+}
+
+function debug_getRightEyeLandmarkLists(landmarks, radiusPx = 48){
+    if (!landmarks || !landmarks.length) return null;
+    // Known sets from constants in file
+    const known = Array.from(new Set([].concat(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER, RIGHT_IRIS_RING, [RIGHT_IRIS_CENTER])));
+    // compute center in canvas coords
+    const centerPt = landmarks[RIGHT_IRIS_CENTER] ? { x: landmarks[RIGHT_IRIS_CENTER].x * canvas.width, y: landmarks[RIGHT_IRIS_CENTER].y * canvas.height } : null;
+    // build eyelid polygon in canvas coords
+    const eyelidPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
+    const nearCenter = [];
+    const insideEyelid = [];
+    const coords = {};
+    for (let i = 0; i < landmarks.length; i++){
+        const p = landmarks[i];
+        if (!p) continue;
+        const cx = p.x * canvas.width, cy = p.y * canvas.height;
+        coords[i] = { x: cx, y: cy, z: p.z };
+        if (centerPt){
+            const d = Math.hypot(cx - centerPt.x, cy - centerPt.y);
+            if (d <= radiusPx) nearCenter.push(i);
+        }
+        if (eyelidPoly && eyelidPoly.length){
+            if (debug_pointInPoly({x:cx,y:cy}, eyelidPoly)) insideEyelid.push(i);
+        }
+    }
+    return { known, nearCenter, insideEyelid, coords, centerPt, eyelidPoly };
+}
+
+function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
+    if (!lists) return;
+    // draw known set (orange)
+    debug_drawIndices(ctx, Object.keys(lists.coords).map(k => ({x: lists.coords[k].x/canvas.width, y: lists.coords[k].y/canvas.height})), []); // noop to keep helper available
+    // draw categories
+    const draw = (indices, color, size=3) => {
+        ctx.save();
+        ctx.fillStyle = color; ctx.strokeStyle = color; ctx.font = '12px monospace';
+        for (const i of indices){
+            const p = lists.coords[i];
+            if (!p) continue;
+            ctx.beginPath(); ctx.arc(p.x, p.y, size, 0, Math.PI*2); ctx.fill();
+            if (showIndex) ctx.fillText(String(i), p.x + size + 1, p.y - size - 2);
+        }
+        ctx.restore();
+    };
+    // console.log('lists: ',lists)
+    
+    // known (orange)
+    // draw(lists.known, '#ff9900', 3);
+    // near center (cyan)
+    // draw(lists.nearCenter, '#00ffff', 1);
+    // inside eyelid polygon (lime)
+    // draw(lists.insideEyelid, '#66ff66', 1);
+    // a specific indices
+    // draw([122,168, 188, 193, 195], '#c800ffff')
+
+    // the landmarks that are now for the left eye
+    // draw([33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7], '#c800ffff')
+    // 386 382 362 263
+    
+    // TODO - check thous landmarks to see what to add or change 
+    // (CHECK THE CORNERS AND REPLACE THEM AS NEEDED)
+    // the landmarks that are now for the right eye
+    // draw([463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362], '#c800ffff', 2)
+    // draw([ 374, 380 ], '#c800ffff', 2)
+// good landmarks, some of theme are already here:
+
+    // draw([386, 382, 263, 362], '#c800ffff', 4); // right
+    // draw([159, 145, 33, 133], '#c800ffff', 4); // left
+
+// 386 388 263 390 373
+
+// up - 386 V
+// up right - 388
+// right corner - 263 V
+// down left - 390, 373
+// left corner - 362
+// maybe - down - 374, down left - 380
+
+    // left eye landmark - [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]
+    // tight eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
+    
+    // optional: outline eyelid polygon
+    if (lists.eyelidPoly && lists.eyelidPoly.length){
+        ctx.save();
+        ctx.strokeStyle = '#66ff66'; ctx.lineWidth = 1; ctx.beginPath();
+        ctx.moveTo(lists.eyelidPoly[0].x, lists.eyelidPoly[0].y);
+        for (let i=1;i<lists.eyelidPoly.length;i++) ctx.lineTo(lists.eyelidPoly[i].x, lists.eyelidPoly[i].y);
+        ctx.closePath(); ctx.stroke(); ctx.restore();
+    }
+}
 
 
 
@@ -376,9 +483,10 @@ function debug_getKnownEyeIndices(side = 'left'){
     const LEFT_EYE_UPPER = [159,158,157,173,133];
     const LEFT_EYE_LOWER = [145,144,163,7,33];
     const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
-    const RIGHT_EYE_LOWER = [382,381,380,374,263]; //
+    const RIGHT_EYE_LOWER = [382,381,380,374,263]; 
     // const RIGHT_EYE_UPPER = [386,385,384,398,263];
     // const RIGHT_EYE_LOWER = [374,380,381,382,362];
+
 
 
     // Show message to the user:
@@ -795,6 +903,23 @@ Step	Purpose
     // debug_logLandmarks(landmarks); // uncomment to print coordinates to console
       // debug_drawIndices(ctx, landmarks, RIGHT_EYE_LOWER);
       // debug_getKnownEyeIndices();
+
+      if (DEBUG_SHOW_RIGHT_EYE) {
+        const lists = debug_getRightEyeLandmarkLists(landmarks, 48); // adjust radiusPx if needed
+        if (lists) {
+          // // print a compact table of indices + coords
+          // const out = [];
+          // for (const i of (new Set([].concat(lists.known, lists.nearCenter, lists.insideEyelid)))) {
+          //   if (!lists.coords[i]) continue;
+          //   out.push({ index: i, x: Math.round(lists.coords[i].x), y: Math.round(lists.coords[i].y), z: lists.coords[i].z,
+          //              nearCenter: lists.nearCenter.includes(i), insideEyelid: lists.insideEyelid.includes(i), known: lists.known.includes(i) });
+          // }
+          // console.table(out);
+          // // draw on canvas (visual)
+          // debug_drawRightEyeLandmarks(ctx, lists, { showIndex: true });
+        }
+        // console.table(lists.nearCenter)
+      }
            
      const leftUpIdx = LEFT_EYE_UPPER[0];
      const leftLowIdx = LEFT_EYE_LOWER[0];
@@ -805,12 +930,38 @@ Step	Purpose
      const rightLowIdx = RIGHT_EYE_LOWER[0];
      const rightLeftIdx = RIGHT_EYE_LOWER[RIGHT_EYE_LOWER.length -1];
      const rightRightIdx = RIGHT_EYE_UPPER[RIGHT_EYE_UPPER.length -1];
-     
+
+    //  console.log('leftUpIdx: ',leftUpIdx)
+    //  console.log('leftLowIdx: ',leftLowIdx)
+    //  console.log('leftLeftIdx: ',leftLeftIdx)
+    //  console.log('leftRightIdx: ',leftRightIdx)
+ 
+// TODO - put the correct landmarks on openR
+
+// const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
+//  const RIGHT_EYE_LOWER = [382,381,380,374,263];
+
+    // 386 388 263 390 373
+    // the landmarks that are now - 386 382 263 362 
+
+// up - 386 V
+// up right - 388
+// right corner - 263 V
+// down left - 390, 373
+// left corner - 362 V
+// maybe - down - 374, down left - 380
+
+ // draw([386, 382, 263, 362], '#c800ffff', 4); // right
+    // draw([159, 145, 33, 133], '#c800ffff', 4); // left
+    
+
       // Calculate how open the eyes are
       const openL = eyeOpenness(landmarks, leftUpIdx, leftLowIdx, leftLeftIdx, leftRightIdx);
       const openR = eyeOpenness(landmarks, rightUpIdx, rightLowIdx, rightLeftIdx, rightRightIdx);
       //            eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx)
       
+      // const openR = eyeOpenness(landmarks, rightUpIdx, rightLowIdx, rightLeftIdx, rightRightIdx);
+
       const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
       const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
       currentEyelids.left  = smoothPoly(currentEyelids.left,  leftRawPoly);
@@ -896,8 +1047,9 @@ Step	Purpose
         if (alphaL > 0.01 && currentEyes.left)  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
         if (alphaR > 0.01 && currentEyes.right) paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
 
-        debug_drawEyelids(ctx, currentEyes, currentEyelids)
+        // debug_drawEyelids(ctx, currentEyes, currentEyelids)
 
+        
 //         if (currentEyes.left && currentEyelids.left) {
 //   ctx.strokeStyle = '#00FF00';
 //   ctx.lineWidth = 1;
