@@ -232,7 +232,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const btnStop  = document.getElementById('efw-stop');
     const colorInp = document.getElementById('efw-color');
     const alphaInp = document.getElementById('efw-alpha');
-    const alphaVal = document.getElementById('efw-alpha-val');
+    // const alphaVal = document.getElementById('efw-alpha-val');
 
     // Floating button + control over opening/closing the color panel
     const fabBtn = document.getElementById('efw-fab');
@@ -242,6 +242,9 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
    
    // Start Color Tag
     const colorTag = document.getElementById('efw-color-tag');
+
+    // Brightness control container
+    const brightnessControlEl = document.querySelector('.efw-brightness-control');
 
     // clamp value to range
     function clamp(v, min, max){ return v < min ? min : (v > max ? max : v); }
@@ -267,11 +270,21 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
     }
 
+    function brightenHex(hex, amount){
+      console.log('hex: ', hex);
+      const {r,g,b} = hexToRgb(hex);
+      return rgbToHex(r + (255-r)*amount, g + (255-g)*amount, b + (255-b)*amount);
+    }
+
     function setWrapBgFromColor(hex){
       if (!wrapEl) return;
       const c1 = darkenHex(hex, 0.40);
       const c2 = darkenHex(hex, 0.70);
       wrapEl.style.background = `linear-gradient(135deg, ${c2}, ${c1})`;
+
+      const brightnessPercent = alphaInp.value / 100
+      const brightColor = brightenHex(hex, brightnessPercent); // Adjust 0.15 for more/less brightness
+      brightnessControlEl.style.backgroundColor = brightColor;
     }
 
     // UI helper for color chips and palette text
@@ -1118,9 +1131,11 @@ Step	Purpose
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user', // Front camera (selfie)
-            // Ideal quality and frame settings
-            width:  { ideal: 640, max: 1280 },
-            height: { ideal: 480, max: 720 },
+            // Ideal quality and frame settings (portrait: 9:16)
+            width:  { ideal: 480, max: 720 },
+            height: { ideal: 854, max: 1280 },
+            // width:  { ideal: 640, max: 1280 },
+            // height: { ideal: 480, max: 720 },
             frameRate: { ideal: 30, max: 60 }
           },
           audio: false
@@ -1223,7 +1238,24 @@ Step	Purpose
     
     // Changes the text that displays the transparency value according to the slider 
     alphaInp.addEventListener('input', () => { alphaVal.textContent = alphaInp.value; });
- 
+
+    // Handle intensity select dropdown
+    const intensitySelect = document.querySelector('select.efw-intensity-btn');
+    if (intensitySelect) {
+      intensitySelect.addEventListener('change', () => {
+        const value = intensitySelect.value;
+        
+        if (value) {
+          alphaInp.value = value;
+          // alphaVal.textContent = value;
+      
+        const brightnessPercent = alphaInp.value / 100
+        const brightColor = brightenHex(colorInp.value, brightnessPercent); 
+        brightnessControlEl.style.backgroundColor = brightColor;
+        }
+      });
+    }
+
     
     //  Start updated UI 
   

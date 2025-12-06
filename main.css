@@ -24,6 +24,7 @@
   align-items: center;
 }
 
+/* @ here is where you can change the size of the window with: aspect-ratio */
 /* Camera window */
 .efw-video-wrap {
   position: relative;
@@ -32,7 +33,8 @@
   border-radius: 12px;
   overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
-  aspect-ratio: 3/4;
+  /* aspect-ratio: 3/4; */
+  aspect-ratio: 9/16;
   min-height: 60vh;
   max-height: 80vh;
 }
@@ -72,7 +74,7 @@ video#efw-video {
 .efw-label {
   display: block;
   font-size: 14px;
-  color: #1e293b;
+  /* color: #1e293b; */
   margin-bottom: 8px;
   font-weight: 600;
 }
@@ -83,6 +85,54 @@ video#efw-video {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
+}
+
+.efw-brightness-control{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 50%;
+  align-items: center;
+  justify-self: center;
+  margin: 12px 0;
+  border-radius: 10px;
+}
+
+/* Select dropdown styling */
+select.efw-inline {
+  padding: 10px 12px;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 180px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 20px;
+  padding-right: 36px;
+}
+
+select.efw-inline:hover {
+  border-color: #999;
+  background-color: #f9f9f9;
+}
+
+select.efw-inline:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+select.efw-inline option {
+  padding: 10px;
+  background: #fff;
+  color: #333;
 }
 
 /* Chips (round selection buttons) */
@@ -163,9 +213,31 @@ video#efw-video {
   font-weight: 600;
 }
 
-.efw-slider {
+/* .efw-slider {
   width: 100%;
   margin: 8px 0;
+} */
+
+.efw-intensity-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.efw-intensity-btn:hover {
+  border-color: #999;
+}
+
+.efw-intensity-btn.active {
+  background: #333;
+  color: #fff;
+  border-color: #333;
 }
 
 .efw-status {
@@ -267,7 +339,7 @@ video#efw-video {
 .efw-palette {
   position: absolute;
   z-index: 4;
-  bottom: 70px;
+  bottom: 100px;
   left: 50%;
   transform: translate(-50%, -8px) scale(0.98);
   opacity: 0;
