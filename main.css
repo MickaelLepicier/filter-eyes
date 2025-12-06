@@ -57,6 +57,7 @@
   display: block;
   border-radius: 12px;
   object-fit: contain;
+  transform: scaleX(-1);
 }
 
 video#efw-video {
