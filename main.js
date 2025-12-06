@@ -9,18 +9,23 @@
 // TODO DEBUGGING:
 // ---
 
-function debug_drawDotsEyelids(ctx, currentEyelids) {
+function debug_drawDotsEyelids(ctx, currEyelids) {
   ctx.fillStyle = '#FF0000';
-  for (const pt of currentEyelids.left) {
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
-    ctx.fill();
+  
+  if(currEyelids.left){
+    for (const pt of currEyelids.left) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 
-  for (const pt of currentEyelids.right) {
-    ctx.beginPath();
-    ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
-    ctx.fill();
+  if(currEyelids.right){    
+    for (const pt of currEyelids.right) {
+      ctx.beginPath();
+      ctx.arc(pt.x, pt.y, 1, 0, Math.PI * 2);
+      ctx.fill();
+    }
   }
 }
      
@@ -28,34 +33,35 @@ function debug_drawDotsEyelids(ctx, currentEyelids) {
 // and the order is not very good at the right eye - check why
 
 // TODO - look at the right eye its not perfect like the eye, fix it by changing the  RIGHT_EYE_LOWER
-function debug_drawEyelids(ctx, currentEyes, currentEyelids) {
+function debug_drawEyelids(ctx, currEyes, currEyelids) {
   
-  if (currentEyes.left && currentEyelids.left) {
+  if (currEyes.left && currEyelids.left) {
     ctx.strokeStyle = '#00FF00';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(currentEyelids.left[0].x, currentEyelids.left[0].y);
+    ctx.moveTo(currEyelids.left[0].x, currEyelids.left[0].y);
   
-    for (let i = 1; i < currentEyelids.left.length; i++) {
-      ctx.lineTo(currentEyelids.left[i].x, currentEyelids.left[i].y);
+    for (let i = 1; i < currEyelids.left.length; i++) {
+      ctx.lineTo(currEyelids.left[i].x, currEyelids.left[i].y);
     }
     ctx.closePath();
     ctx.stroke();
   }
   
-    if (currentEyes.right && currentEyelids.right) {
+    if (currEyes.right && currEyelids.right) {
     ctx.strokeStyle = '#00fff2ff';
     ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(currentEyelids.right[0].x, currentEyelids.right[0].y);
+    ctx.moveTo(currEyelids.right[0].x, currEyelids.right[0].y);
   
-    for (let i = 1; i < currentEyelids.right.length; i++) {
-      ctx.lineTo(currentEyelids.right[i].x, currentEyelids.right[i].y);
+    for (let i = 1; i < currEyelids.right.length; i++) {
+      ctx.lineTo(currEyelids.right[i].x, currEyelids.right[i].y);
     }
     ctx.closePath();
     ctx.stroke();
   }
-debug_drawDotsEyelids(ctx, currentEyelids);
+
+debug_drawDotsEyelids(ctx, currEyelids);
 }
 
 
@@ -192,43 +198,16 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
         }
         ctx.restore();
     };
-    // console.log('lists: ',lists)
+
+    // more left eye landmark - [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]
+    // more tight eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
     
     // known (orange)
     // draw(lists.known, '#ff9900', 3);
-    // near center (cyan)
-    // draw(lists.nearCenter, '#00ffff', 1);
-    // inside eyelid polygon (lime)
-    // draw(lists.insideEyelid, '#66ff66', 1);
-    // a specific indices
-    // draw([122,168, 188, 193, 195], '#c800ffff')
+   
+    // draw([386, 374, 263, 362], '#c800ffff', 4); // right eye
+    // draw([159, 145, 33, 133], '#c800ffff', 4); // left eye
 
-    // the landmarks that are now for the left eye
-    // draw([33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7], '#c800ffff')
-    // 386 382 362 263
-    
-    // TODO - check thous landmarks to see what to add or change 
-    // (CHECK THE CORNERS AND REPLACE THEM AS NEEDED)
-    // the landmarks that are now for the right eye
-    // draw([463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362], '#c800ffff', 2)
-    // draw([ 374, 380 ], '#c800ffff', 2)
-// good landmarks, some of theme are already here:
-
-    // draw([386, 382, 263, 362], '#c800ffff', 4); // right
-    // draw([159, 145, 33, 133], '#c800ffff', 4); // left
-
-// 386 388 263 390 373
-
-// up - 386 V
-// up right - 388
-// right corner - 263 V
-// down left - 390, 373
-// left corner - 362
-// maybe - down - 374, down left - 380
-
-    // left eye landmark - [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]
-    // tight eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
-    
     // optional: outline eyelid polygon
     if (lists.eyelidPoly && lists.eyelidPoly.length){
         ctx.save();
@@ -381,8 +360,14 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       BLUR_PX: 1.4
     };
 
-    // TODO fix - Maybe to fix the bug of closing eyes is here - BLINK
-    const BLINK = { T0: 0.14, T1: 0.22 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
+    // // More sensitive (disappears quickly)
+    // const BLINK = { T0: 0.14, T1: 0.22 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
+  
+    // Medium sensitive
+    const BLINK = { T0: 0.10, T1: 0.18 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
+
+    // // Less sensitive (stays longer)
+    // const BLINK = { T0: 0.05, T1: 0.10 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
 
     const noiseCanvas = document.createElement('canvas');
     const noiseCtx = noiseCanvas.getContext('2d');
@@ -483,7 +468,10 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const LEFT_EYE_UPPER = [159,158,157,173,133];
     const LEFT_EYE_LOWER = [145,144,163,7,33];
     const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
-    const RIGHT_EYE_LOWER = [382,381,380,374,263]; 
+    const RIGHT_EYE_LOWER = [374,373,390,249,263]; 
+
+    // const RIGHT_EYE_LOWER = [374,381,380,374,263]; 
+    
     // const RIGHT_EYE_UPPER = [386,385,384,398,263];
     // const RIGHT_EYE_LOWER = [374,380,381,382,362];
 
@@ -930,30 +918,6 @@ Step	Purpose
      const rightLowIdx = RIGHT_EYE_LOWER[0];
      const rightLeftIdx = RIGHT_EYE_LOWER[RIGHT_EYE_LOWER.length -1];
      const rightRightIdx = RIGHT_EYE_UPPER[RIGHT_EYE_UPPER.length -1];
-
-    //  console.log('leftUpIdx: ',leftUpIdx)
-    //  console.log('leftLowIdx: ',leftLowIdx)
-    //  console.log('leftLeftIdx: ',leftLeftIdx)
-    //  console.log('leftRightIdx: ',leftRightIdx)
- 
-// TODO - put the correct landmarks on openR
-
-// const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
-//  const RIGHT_EYE_LOWER = [382,381,380,374,263];
-
-    // 386 388 263 390 373
-    // the landmarks that are now - 386 382 263 362 
-
-// up - 386 V
-// up right - 388
-// right corner - 263 V
-// down left - 390, 373
-// left corner - 362 V
-// maybe - down - 374, down left - 380
-
- // draw([386, 382, 263, 362], '#c800ffff', 4); // right
-    // draw([159, 145, 33, 133], '#c800ffff', 4); // left
-    
 
       // Calculate how open the eyes are
       const openL = eyeOpenness(landmarks, leftUpIdx, leftLowIdx, leftLeftIdx, leftRightIdx);
