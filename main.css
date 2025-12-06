@@ -393,6 +393,44 @@ select.efw-inline option {
   pointer-events: auto;
 }
 
+/* Brightness boost button */
+#efw-bright-boost {
+  position: absolute;
+  z-index: 4;
+  bottom: 40px;
+  left: calc(45% - 72px);
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 22px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#efw-bright-boost:hover {
+  filter: brightness(1.05);
+}
+#efw-bright-boost:active {
+  transform: translateX(-50%) scale(0.98);
+}
+.camera-running #efw-bright-boost {
+  opacity: 1;
+  pointer-events: auto;
+}
+.efw-video-wrap.palette-open #efw-bright-boost {
+  opacity: 0;
+  pointer-events: none;
+}
+
 /* Floating print button */
 #efw-capture {
   position: absolute;

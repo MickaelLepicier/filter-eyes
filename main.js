@@ -1198,6 +1198,8 @@ Step	Purpose
         btnStop.disabled = true;
         
         setStatus('לחץ על "הפעל מצלמה" להתחלה');
+
+        resetBrightBoost();
       } catch (_) {}
     }
 
@@ -1226,6 +1228,9 @@ Step	Purpose
         chip.classList.add('active');
         setWrapBgFromColor(colorInp.value);
         updateColorTag();
+
+        // Reset the brightBoost
+        resetBrightBoost()
 
         // Automatically close the panel after selecting a color
         if (wrapEl && fabBtn && pal){
@@ -1256,6 +1261,41 @@ Step	Purpose
       });
     }
 
+
+    // Brightness boost button (+10%)
+    const brightBoostBtn = document.getElementById('efw-bright-boost');
+    let brightBoostUsed = false;
+
+
+    function resetBrightBoost(){
+        brightBoostUsed = false;
+        if (brightBoostBtn) {
+          brightBoostBtn.style.opacity = '1';
+          brightBoostBtn.style.pointerEvents = 'auto';
+        }
+    }
+
+
+    if (brightBoostBtn) {
+        brightBoostBtn.addEventListener('click', () => {
+        if (brightBoostUsed) return;
+
+        brightBoostUsed = true;
+
+        let currentAlpha = parseInt(alphaInp.value, 10);
+        const newAlpha = Math.min(100, currentAlpha + 10);
+        alphaInp.value = newAlpha;
+    
+        // Update brightness control background if applicable
+        const brightnessPercent = newAlpha / 100;
+        const brightColor = brightenHex(colorInp.value, brightnessPercent);
+        brightnessControlEl.style.backgroundColor = brightColor;
+    
+        // Optional: disable the button visually
+        brightBoostBtn.style.opacity = '0.5';
+        brightBoostBtn.style.pointerEvents = 'none';
+      });
+    }
     
     //  Start updated UI 
   
