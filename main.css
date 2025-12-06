@@ -364,7 +364,7 @@ select.efw-inline option {
   position: absolute;
   z-index: 4;
   bottom: 40px;
-  left: 45%;
+  left: 50%;
   transform: translateX(-50%);
   width: 56px;
   height: 56px;
@@ -398,7 +398,7 @@ select.efw-inline option {
   position: absolute;
   z-index: 4;
   bottom: 40px;
-  left: calc(45% - 72px);
+  left: calc(50% - 72px);
   transform: translateX(-50%);
   width: 56px;
   height: 56px;
@@ -436,7 +436,7 @@ select.efw-inline option {
   position: absolute;
   z-index: 4;
   bottom: 40px;
-  left: calc(45% + 72px);
+  left: calc(50% + 72px);
   transform: translateX(-50%);
   width: 56px;
   height: 56px;
@@ -474,10 +474,11 @@ select.efw-inline option {
   position: absolute;
   z-index: 4;
   bottom: 6px;
-  left: 50%;
-  transform: translateX(-50%);
+  /* left: 50%;
+  transform: translateX(-50%); */
   padding: 6px 12px;
   border-radius: 9999px;
+  justify-self: center;
   background: rgba(15, 23, 42, 0.72);
   color: #fff;
   font-weight: 700;
@@ -490,6 +491,7 @@ select.efw-inline option {
   pointer-events: none;
   opacity: 1;
   transition: opacity 0.2s ease;
+  white-space: nowrap;
 }
 .efw-video-wrap.palette-open .efw-color-tag {
   opacity: 0;
