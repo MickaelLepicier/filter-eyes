@@ -317,6 +317,10 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     let animationId = null;
     let currentEyes = { left: null, right: null };
     let currentEyelids = { left: null, right: null };
+    
+    // BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
+    // let leftIrisDetected = false;
+    // let rightIrisDetected = false;
 
     const REALISM = {
       SIZE_MULTIPLIER: 0.92,
@@ -892,6 +896,11 @@ Step	Purpose
       // debug_drawIndices(ctx, landmarks, RIGHT_EYE_LOWER);
       // debug_getKnownEyeIndices();
 
+    // BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
+    // Check if iris landmarks are detected (not occluded)
+    // leftIrisDetected = landmarks[LEFT_IRIS_CENTER] && landmarks[LEFT_IRIS_CENTER].z > -0.2;
+    // rightIrisDetected = landmarks[RIGHT_IRIS_CENTER] && landmarks[RIGHT_IRIS_CENTER].z > -0.2;
+
       if (DEBUG_SHOW_RIGHT_EYE) {
         const lists = debug_getRightEyeLandmarkLists(landmarks, 48); // adjust radiusPx if needed
         if (lists) {
@@ -1008,9 +1017,23 @@ Step	Purpose
         const alphaR = alpha * gateR;
 
         // Draws a color/effect on the pupil
-        if (alphaL > 0.01 && currentEyes.left)  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
-        if (alphaR > 0.01 && currentEyes.right) paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
+        if (alphaL > 0.01 && currentEyes.left ){
+         paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
+        }
 
+        if (alphaR > 0.01 && currentEyes.right ){
+          paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
+        }
+
+        // BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
+
+        // if (alphaL > 0.01 && currentEyes.left && leftIrisDetected){
+        //  paintEye(currentEyes.left.center,  currentEyes.left.radius,  color, alphaL, blendMode);
+        // }
+        
+        // if (alphaR > 0.01 && currentEyes.right && rightIrisDetected){
+        //   paintEye(currentEyes.right.center, currentEyes.right.radius, color, alphaR, blendMode);
+        // }
         // debug_drawEyelids(ctx, currentEyes, currentEyelids)
 
         
