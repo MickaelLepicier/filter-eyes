@@ -336,15 +336,10 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // let rightIrisDetected = false;
 
     const REALISM = {
-      // SIZE_MULTIPLIER: 0.92,
-      // MIN_RADIUS: 6,
-      // MAX_RADIUS: 36,
-      // IRIS_SHRINK: 0.90,
-      SIZE_MULTIPLIER: 0.98,
+      SIZE_MULTIPLIER: 0.92,
       MIN_RADIUS: 6,
-      MAX_RADIUS: 45,
-      IRIS_SHRINK: 0.95,
-      
+      MAX_RADIUS: 36,
+      IRIS_SHRINK: 0.90,
       RING_MARGIN: 0.92,
       PUPIL_RATIO: 0.32,
       LIMBAL_WIDTH: 0.18, // Control the limbal ring (dark ring around the iris)
