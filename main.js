@@ -1,7 +1,12 @@
 (function(){
     'use strict';
 
-// TODOs - put in every section what is it responsible for
+// TODOs
+// - order the comments 
+// - put in every section what is it responsible for
+// - explain abit more about how to use the  DEBUGGING function
+// - Ask the company for letter
+
 // TODO - Questions to Rony:
 
 
@@ -207,36 +212,44 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 }
 
-// ---
+    // GET ELEMENTS from HTML:
 
-    
-    const video = document.getElementById('efw-video'); // receives the webcam stream
-    const canvas = document.getElementById('efw-canvas'); // draw the video frame and overlays
-    const ctx = canvas.getContext('2d', { alpha: false }); // 2D drawing context for the canvas
+    // receives the webcam stream
+    const video = document.getElementById('efw-video'); 
+
+    // draw the video frame and overlays
+    const canvas = document.getElementById('efw-canvas'); 
+
+    // 2D drawing context for the canvas
+    const ctx = canvas.getContext('2d', { alpha: false }); 
     const statusEl = document.getElementById('efw-status'); // shows status / messages to the user
 
-    const btnStartCenter = document.getElementById('efw-start-center');
-    const btnStop  = document.getElementById('efw-stop');
-    const colorInp = document.getElementById('efw-color');
-    const alphaInp = document.getElementById('efw-alpha');
-    // const alphaVal = document.getElementById('efw-alpha-val');
+    // "start camera" button
+    const btnStartCenter = document.getElementById('efw-start-center'); 
+
+    // "stop camera" button
+    const btnStop  = document.getElementById('efw-stop'); 
+
+    // color input for selecting the eye filter color
+    const colorInp = document.getElementById('efw-color'); 
+    const alphaInp = document.getElementById('efw-alpha'); // input controlling the filter's transparency
 
     // Floating button + control over opening/closing the color panel
-    const fabBtn = document.getElementById('efw-fab');
-    const wrapEl = document.querySelector('.efw-video-wrap');
-    const pal = document.getElementById('efw-palette');
-    const btnCapture = document.getElementById('efw-capture');
+    const fabBtn = document.getElementById('efw-fab'); // button for opening the color palette
+    const wrapEl = document.querySelector('.efw-video-wrap'); // main video that wraps the camera and overlays
+    const pal = document.getElementById('efw-palette'); // color palette panel for selecting filter colors
+    const btnCapture = document.getElementById('efw-capture'); // button used to capture and download a snapshot
    
-   // Start Color Tag
-    const colorTag = document.getElementById('efw-color-tag');
+    const colorTag = document.getElementById('efw-color-tag'); // displays the name of the currently selected eye filter color
+    const brightnessControlEl = document.querySelector('.efw-brightness-control'); // Brightness control container
 
-    // Brightness control container
-    const brightnessControlEl = document.querySelector('.efw-brightness-control');
+
+    // UTILITY functions for color manipulation:
 
     // clamp value to range
     function clamp(v, min, max){ return v < min ? min : (v > max ? max : v); }
     
-    // hex string from RGB
+    // convert hex to RGB
     function hexToRgb(hex){
       if (!hex) return {r: 183, g: 164, b: 157};
       let h = hex.trim().replace('#','');
@@ -245,7 +258,8 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       if (Number.isNaN(num)) return {r: 183, g: 164, b: 157};
       return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
     }
-
+    
+    // convert RGB to hex
     function rgbToHex(r,g,b){
       const toHex = (n)=> clamp(Math.round(n),0,255).toString(16).padStart(2,'0');
       return '#' + toHex(r) + toHex(g) + toHex(b);
@@ -257,12 +271,13 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return rgbToHex(r*(1-amount), g*(1-amount), b*(1-amount));
     }
 
+    // returns brighter hex color
     function brightenHex(hex, amount){
-      console.log('hex: ', hex);
       const {r,g,b} = hexToRgb(hex);
       return rgbToHex(r + (255-r)*amount, g + (255-g)*amount, b + (255-b)*amount);
     }
 
+    // update background gradient
     function setWrapBgFromColor(hex){
       if (!wrapEl) return;
       const c1 = darkenHex(hex, 0.40);
@@ -274,7 +289,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       brightnessControlEl.style.backgroundColor = brightColor;
     }
 
-    // UI helper for color chips and palette text
+    // find active color chip
     function getSelectedChip(){
       const active = document.querySelector('.efw-chip.active');
       if (active) return active;
@@ -284,7 +299,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return null;
     }
 
-    // UI helper for color chips and palette text
+    // update color name display
     function updateColorTag(){
       if (!colorTag) return;
       const chip = getSelectedChip();
@@ -292,10 +307,11 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       colorTag.textContent = name;
     }
 
-    // הפעלה ראשונית לפי ברירת המחדל
+    // Initial activation according to the default alliance
     setWrapBgFromColor(colorInp.value);
     updateColorTag();
     
+
    // End Color Tag
 
     if (fabBtn && wrapEl && pal){
@@ -307,40 +323,37 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 
 
-    
-    // Fixed to normal mixing mode
-    const blendMode = 'source-over';
+    // CONFIGURATION & STATE:
 
-    let running = false;
-    let stream = null;
-    let faceMesh = null;
-    let animationId = null;
-    let currentEyes = { left: null, right: null };
-    let currentEyelids = { left: null, right: null };
+    const blendMode = 'source-over'; // canvas blend mode
+    let running = false; // camera running state
+    let stream = null; // media stream
+    let faceMesh = null; // face detection model
+    let animationId = null; // animation frame ID
+    let currentEyes = { left: null, right: null }; // detected eye positions
+    let currentEyelids = { left: null, right: null }; // eyelid polygon data
     
-    // BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
+    // BUG - this is a test solution for the bug when the hand in front of eye doesn't remove color filter 
     // let leftIrisDetected = false;
     // let rightIrisDetected = false;
 
+    // iris rendering parameters
     const REALISM = {
-      SIZE_MULTIPLIER: 0.92,
+      SIZE_MULTIPLIER: 0.98,
       MIN_RADIUS: 6,
-      MAX_RADIUS: 36,
-      IRIS_SHRINK: 0.90,
+      MAX_RADIUS: 45,
+      IRIS_SHRINK: 0.98,
       RING_MARGIN: 0.92,
       PUPIL_RATIO: 0.32,
       LIMBAL_WIDTH: 0.18, // Control the limbal ring (dark ring around the iris)
       LIMBAL_ALPHA: 0.55, // Control the limbal ring (dark ring around the iris)
-      // LIMBAL_ALPHA: 0.25, 
       HIGHLIGHT_ALPHA: 0.35, // Light reflection on the cornea
       HIGHLIGHT_OFFSET: 0.28, // Light reflection on the cornea
       FIBER_COUNT: 36, 
       FIBER_ALPHA: 0.14, // Affect iris texture contrast
-      // FIBER_ALPHA: 0.08,
       FIBER_INNER: 0.28,
       FIBER_OUTER: 0.95,
       EDGE_DARKEN: 0.25, // Darkens the outer edge of the iris
-      // EDGE_DARKEN: 0.08,
       INNER_GLOW: 0.20, // Adds a subtle bright ring inside the iris
       SMOOTHING: 0.35,
       CENTER_BLEND: 0.6, // Controls how the pupil blends with the iris
@@ -357,6 +370,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       FILL_BOOST_ALPHA: 0.12
     };
 
+    // eyelid clipping settings
     const EYELID_MASK = {
       ENABLED: true,
       CLIP_STRENGTH: 0.55,
@@ -364,14 +378,8 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       BLUR_PX: 1.4
     };
 
-    // // More sensitive (disappears quickly)
-    // const BLINK = { T0: 0.14, T1: 0.22 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
-  
-    // Medium sensitive
+    // blink sensitivity thresholds:
     const BLINK = { T0: 0.10, T1: 0.18 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
-
-    // // Less sensitive (stays longer)
-    // const BLINK = { T0: 0.05, T1: 0.10 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
 
     const noiseCanvas = document.createElement('canvas');
     const noiseCtx = noiseCanvas.getContext('2d');
@@ -458,11 +466,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const LEFT_EYE_LOWER = [145,144,163,7,33];
     const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
     const RIGHT_EYE_LOWER = [374,373,390,249,263]; 
-
-    // const RIGHT_EYE_LOWER = [374,381,380,374,263]; 
-    
-    // const RIGHT_EYE_UPPER = [386,385,384,398,263];
-    // const RIGHT_EYE_LOWER = [374,380,381,382,362];
 
 
 
@@ -1162,9 +1165,6 @@ Step	Purpose
       });
     });
     
-    // Changes the text that displays the transparency value according to the slider 
-    alphaInp.addEventListener('input', () => { alphaVal.textContent = alphaInp.value; });
-
     // Handle intensity select dropdown
     const intensitySelect = document.querySelector('select.efw-intensity-btn');
     if (intensitySelect) {
@@ -1173,7 +1173,6 @@ Step	Purpose
         
         if (value) {
           alphaInp.value = value;
-          // alphaVal.textContent = value;
       
         const brightnessPercent = alphaInp.value / 100
         const brightColor = brightenHex(colorInp.value, brightnessPercent); 
