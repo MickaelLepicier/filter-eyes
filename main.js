@@ -1,13 +1,11 @@
 (function(){
     'use strict';
 
-// BUG 1 -> good clip, bad shadows
-// or
-// BUG 2 -> good color, bad clip
+// TODOs - put in every section what is it responsible for
+// TODO - Questions to Rony:
 
 
-// TODO DEBUGGING:
-// ---
+// DEBUGGING functions:
 
 function debug_drawDotsEyelids(ctx, currEyelids) {
   ctx.fillStyle = '#FF0000';
@@ -29,10 +27,6 @@ function debug_drawDotsEyelids(ctx, currEyelids) {
   }
 }
      
-// TODO - there are 10 dots on the left eye and 9 on the right eye 
-// and the order is not very good at the right eye - check why
-
-// TODO - look at the right eye its not perfect like the eye, fix it by changing the  RIGHT_EYE_LOWER
 function debug_drawEyelids(ctx, currEyes, currEyelids) {
   
   if (currEyes.left && currEyelids.left) {
@@ -64,7 +58,6 @@ function debug_drawEyelids(ctx, currEyes, currEyelids) {
 debug_drawDotsEyelids(ctx, currEyelids);
 }
 
-
 // debug: draw all landmarks (dots + optional index labels)
 function debug_drawAllLandmarks(ctx, landmarks, { showIndex = false, color = 'red', size = 2 } = {}) {
     if (!landmarks || !landmarks.length) return;
@@ -95,7 +88,6 @@ function debug_logLandmarks(landmarks) {
     const pts = landmarks.map((p, i) => ({ i, x: p.x * canvas.width, y: p.y * canvas.height, z: p.z }));
     console.table(pts);
 }
-
 
 // debug: return array of indices whose projected position is within px radius of a center landmark
 function debug_getLandmarksNear(landmarks, centerIdx, pxRadius = 40){
@@ -136,8 +128,6 @@ function debug_getKnownEyeIndices(side = 'left'){
     if (side === 'left') return Array.from(new Set([].concat(LEFT_EYE_UPPER, LEFT_EYE_LOWER, LEFT_IRIS_RING, [LEFT_IRIS_CENTER])));
     return Array.from(new Set([].concat(RIGHT_EYE_UPPER, RIGHT_EYE_LOWER, RIGHT_IRIS_RING, [RIGHT_IRIS_CENTER])));
 }
-
-// LIST OF ALL THE DOTS THAT ARE IN THE RIGHT EYE
 
 // debug helpers: list & draw every landmark that belongs to the right eye
 const DEBUG_SHOW_RIGHT_EYE = true;
@@ -202,9 +192,8 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // more left eye landmark - [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]
     // more tight eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
     
-    // known (orange)
+    // tests:
     // draw(lists.known, '#ff9900', 3);
-   
     // draw([386, 374, 263, 362], '#c800ffff', 4); // right eye
     // draw([159, 145, 33, 133], '#c800ffff', 4); // left eye
 
@@ -218,15 +207,13 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 }
 
-
-
 // ---
 
-
-    const video = document.getElementById('efw-video');
-    const canvas = document.getElementById('efw-canvas'); 
-    const ctx = canvas.getContext('2d', { alpha: false });
-    const statusEl = document.getElementById('efw-status');
+    
+    const video = document.getElementById('efw-video'); // receives the webcam stream
+    const canvas = document.getElementById('efw-canvas'); // draw the video frame and overlays
+    const ctx = canvas.getContext('2d', { alpha: false }); // 2D drawing context for the canvas
+    const statusEl = document.getElementById('efw-status'); // shows status / messages to the user
 
     const btnStartCenter = document.getElementById('efw-start-center');
     const btnStop  = document.getElementById('efw-stop');
@@ -391,22 +378,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     noiseCanvas.width = 64;
     noiseCanvas.height = 64;
-    
-    // TODO - check without this function
-    // populates noiseCanvas with low-alpha gray noise used subtly in iris texture
-    // (function buildNoise(){
-    //   const img = noiseCtx.createImageData(noiseCanvas.width, noiseCanvas.height);
-    //   for (let i=0; i<img.data.length; i+=4){
-    //     const v = 120 + Math.floor(Math.random()*16);
-    //     img.data[i] = v; img.data[i+1] = v; img.data[i+2] = v; img.data[i+3] = 10;
-    //   }
-    //   noiseCtx.putImageData(img, 0, 0);
-    // })();
 
-
-    // TODO - here are some shadows. check if the shadows are created here
-    // CHECK MORE OPTIONS THAT CREATE THE SHADOWS AND COMMENT THEM TO CHECK IF ITS WORKING
-    
 
     // shadows & lighting
     const eyeColorLayer = document.createElement('canvas');
@@ -632,9 +604,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return out;
     }
 
-    // TODO - check here for bug ("paintEye & drawShading")
-    // - make the iris as is is and not always round
-   
    // Main routine that composes everything and draws the resulting
    // colored iris onto the main canvas at given center:
    // calculates r (shrunk iris radius) and S (working size),
@@ -661,22 +630,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
      
       ensureMaskSize(S);
 
-// the eyeMaskCtx.globalCompositeOperation = ''
-
-// source-over
-// destination-over
-// clear
-// copy
-// 
-// destination-in
-// destination-out
-// source-in
-// source-out
-// destination-atop
-// source-atop
-
-    // eyeMaskLayer eyeMaskCtx eyeMaskFeather eyeMaskFeatherCtx eyeCutLayer eyeCutCtx eyeCutFeather eyeCutFeatherCtx
-
       // clear flow used in current buildMask
       // 1. Create eyeCutLayer: fill white full-rect, then destination-out the eyelid polygon so eyelid area becomes transparent (makes a cutout)
       // 2.Blur that cut in eyeCutFeather (eyeCutFeatherCtx.filter blur)
@@ -691,7 +644,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
           eyeCutCtx.translate(S/2, S/2);
       
       // `````
-      // TODO - The problem is here
 
           // White background — this defines the area that will be clipped out (square)
           eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
@@ -721,7 +673,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
           // making 2 shadows 
           try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
 
-          // // TODO if I delete this so no shadow, but no clip...
           eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
           try { eyeCutFeatherCtx.filter = 'none'; } catch(_) {}
           eyeCutFeatherCtx.restore();
@@ -764,38 +715,7 @@ Step	Purpose
 6	    Feather the final result
 */
 
-      // TODO - at the end when I finish compress the files like in vit - minifite 
-
-      // constructs the final iris mask that combines circular base and eyelid cut if enabled
-      // 1. draw circular base into eyeMaskCtx
-      // 2. if eyelid mask enabled and lidPoly exists, call buildEyelidMask (which creates a cut and subtracts it)
-      // 3. feather the eyeMaskLayer into eyeMaskFeather
-
-
-      // בין פריים לפריים תרשום איזה פיל עשית בקודם
-      // about clear rect 
-      // make it not to make always as a circle
-      // the problem is in the mask
-      // change the polygon 
-
-      // draw something else instead of CIRCLE
-
-      // comment code that don't have an effect
-
-      // TODOs:
-      // - comment code that don't have an effect 
-      // - understand where I get the dots in the code
-      // - draw not as a circle but as it should be in the  
-
       (function buildMask(){
-
-        // TODO - check each line and do try and error
-        // until you will have a color with clip
-
-        // control the code, if you want to draw a specific dots 
-        // (when I do X then Y happens)
-        
-        // always change one thing and check (Never multiple) 
 
         // Create a circular white mask base
           eyeMaskCtx.save();
@@ -901,15 +821,16 @@ Step	Purpose
       }
 
       const landmarks = results.multiFaceLandmarks[0];
-      // TODO - delete debug functions
-    // debug_drawAllLandmarks draws dots + indices on the main canvas
+      // debug tests:
+
+    // draws dots + indices on the main canvas
     // debug_drawAllLandmarks(ctx, landmarks, { showIndex: true, color: '#ff0000', size: 2 });
 
     // debug_logLandmarks(landmarks); // uncomment to print coordinates to console
-      // debug_drawIndices(ctx, landmarks, RIGHT_EYE_LOWER);
-      // debug_getKnownEyeIndices();
+    // debug_drawIndices(ctx, landmarks, RIGHT_EYE_LOWER);
+    // debug_getKnownEyeIndices();
 
-    // BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
+    // @ BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
     // Check if iris landmarks are detected (not occluded)
     // leftIrisDetected = landmarks[LEFT_IRIS_CENTER] && landmarks[LEFT_IRIS_CENTER].z > -0.2;
     // rightIrisDetected = landmarks[RIGHT_IRIS_CENTER] && landmarks[RIGHT_IRIS_CENTER].z > -0.2;
