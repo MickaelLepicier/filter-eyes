@@ -10,8 +10,12 @@
 // TODO - Questions to Rony:
 
 
-// DEBUGGING functions:
+/* --- Debugging Functions --- */
 
+// to use them I already implemented them, just search the
+// function name and uncomment the function to call it
+
+// debug: draws dots at every eyelid landmark point for both eyes
 function debug_drawDotsEyelids(ctx, currEyelids) {
   ctx.fillStyle = '#FF0000';
   
@@ -31,7 +35,8 @@ function debug_drawDotsEyelids(ctx, currEyelids) {
     }
   }
 }
-     
+    
+// debug: draws outlined shapes connecting the eyelid points for each eye
 function debug_drawEyelids(ctx, currEyes, currEyelids) {
   
   if (currEyes.left && currEyelids.left) {
@@ -137,6 +142,7 @@ function debug_getKnownEyeIndices(side = 'left'){
 // debug helpers: list & draw every landmark that belongs to the right eye
 const DEBUG_SHOW_RIGHT_EYE = true;
 
+// debug: checks whether a given point lies inside a polygon
 function debug_pointInPoly(point, poly){
     // ray-casting / winding test
     if (!poly || !poly.length) return false;
@@ -150,6 +156,7 @@ function debug_pointInPoly(point, poly){
     return inside;
 }
 
+// debug: analyzes all facial landmarks and returns groups of right-eye-related indices
 function debug_getRightEyeLandmarkLists(landmarks, radiusPx = 48){
     if (!landmarks || !landmarks.length) return null;
     // Known sets from constants in file
@@ -177,6 +184,7 @@ function debug_getRightEyeLandmarkLists(landmarks, radiusPx = 48){
     return { known, nearCenter, insideEyelid, coords, centerPt, eyelidPoly };
 }
 
+// debug: draws the selected right-eye landmark points
 function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     if (!lists) return;
     // draw known set (orange)
@@ -212,7 +220,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 }
 
-    // GET ELEMENTS from HTML:
+    /* --- Get Elements from HTML --- */
 
     // receives the webcam stream
     const video = document.getElementById('efw-video'); 
@@ -222,7 +230,9 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     // 2D drawing context for the canvas
     const ctx = canvas.getContext('2d', { alpha: false }); 
-    const statusEl = document.getElementById('efw-status'); // shows status / messages to the user
+
+    // shows status / messages to the user
+    const statusEl = document.getElementById('efw-status'); 
 
     // "start camera" button
     const btnStartCenter = document.getElementById('efw-start-center'); 
@@ -232,19 +242,30 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     // color input for selecting the eye filter color
     const colorInp = document.getElementById('efw-color'); 
-    const alphaInp = document.getElementById('efw-alpha'); // input controlling the filter's transparency
 
-    // Floating button + control over opening/closing the color panel
-    const fabBtn = document.getElementById('efw-fab'); // button for opening the color palette
-    const wrapEl = document.querySelector('.efw-video-wrap'); // main video that wraps the camera and overlays
-    const pal = document.getElementById('efw-palette'); // color palette panel for selecting filter colors
-    const btnCapture = document.getElementById('efw-capture'); // button used to capture and download a snapshot
+    // input controlling the filter's transparency
+    const alphaInp = document.getElementById('efw-alpha'); 
+
+    // button for opening the color palette
+    const fabBtn = document.getElementById('efw-fab'); 
+
+    // main video that wraps the camera and overlays
+    const wrapEl = document.querySelector('.efw-video-wrap'); 
+
+    // color palette panel for selecting filter colors
+    const pal = document.getElementById('efw-palette'); 
+
+    // button used to capture and download a snapshot
+    const btnCapture = document.getElementById('efw-capture'); 
    
-    const colorTag = document.getElementById('efw-color-tag'); // displays the name of the currently selected eye filter color
-    const brightnessControlEl = document.querySelector('.efw-brightness-control'); // Brightness control container
+    // displays the name of the currently selected eye filter color
+    const colorTag = document.getElementById('efw-color-tag'); 
+
+    // Brightness control container
+    const brightnessControlEl = document.querySelector('.efw-brightness-control'); 
 
 
-    // UTILITY functions for color manipulation:
+    /* --- Utility functions for color manipulation --- */
 
     // clamp value to range
     function clamp(v, min, max){ return v < min ? min : (v > max ? max : v); }
@@ -313,7 +334,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     
 
    // End Color Tag
-
     if (fabBtn && wrapEl && pal){
       fabBtn.addEventListener('click', ()=>{
         const isOpen = wrapEl.classList.toggle('palette-open');
@@ -323,15 +343,28 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 
 
-    // CONFIGURATION & STATE:
+    /* --- Configuration & State --- */
 
-    const blendMode = 'source-over'; // canvas blend mode
-    let running = false; // camera running state
-    let stream = null; // media stream
-    let faceMesh = null; // face detection model
-    let animationId = null; // animation frame ID
-    let currentEyes = { left: null, right: null }; // detected eye positions
-    let currentEyelids = { left: null, right: null }; // eyelid polygon data
+    // canvas blend mode
+    const blendMode = 'source-over'; 
+
+    // camera running state
+    let running = false; 
+
+    // media stream
+    let stream = null; 
+
+    // face detection model
+    let faceMesh = null; 
+
+    // animation frame ID
+    let animationId = null; 
+
+    // detected eye positions
+    let currentEyes = { left: null, right: null }; 
+
+    // eyelid polygon data
+    let currentEyelids = { left: null, right: null }; 
     
     // BUG - this is a test solution for the bug when the hand in front of eye doesn't remove color filter 
     // let leftIrisDetected = false;
@@ -374,7 +407,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const EYELID_MASK = {
       ENABLED: true,
       CLIP_STRENGTH: 0.55,
-      // CLIP_STRENGTH: 0.7,
       BLUR_PX: 1.4
     };
 
