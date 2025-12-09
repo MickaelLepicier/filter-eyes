@@ -4,10 +4,17 @@
 // TODOs
 // - order the comments 
 // - put in every section what is it responsible for
-// - explain abit more about how to use the  DEBUGGING function
 // - Ask the company for letter
 
 // explain to Nir that where there is @ its where I fixed some bugs like the shade or the ratio of the video
+
+// cut the Shulaim in the video and to be full screen
+// bug - when I close the the the camera the 3rd button is still showin - hide him
+// make the screen of the video to be like the french - https://neoris-eyes.com/simulation/
+
+// create a letter for the company - working in a team with vibe coding
+// compress the code to one file
+
 
 
 /* --- Debugging Functions --- */
@@ -637,7 +644,6 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       const up = ptsFromIndices(landmarks, upperIdx);
       const low = ptsFromIndices(landmarks, lowerIdx);
       if (up.length < 2 || low.length < 2) return null;
-      // @
        return up.concat(low); 
     }
 
@@ -1080,6 +1086,7 @@ Explanation, Step	Purpose:
           video: {
             facingMode: 'user', // Front camera (selfie)
 
+            // TODO - the bug of the screen is here
             // @ Ideal quality and frame settings (ratio: 9:16)
             width:  { ideal: 480, max: 720 },
             height: { ideal: 854, max: 1280 },
