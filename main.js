@@ -7,7 +7,7 @@
 // - explain abit more about how to use the  DEBUGGING function
 // - Ask the company for letter
 
-// TODO - Questions to Rony:
+// explain to Nir that where there is @ its where I fixed some bugs like the shade or the ratio of the video
 
 
 /* --- Debugging Functions --- */
@@ -374,7 +374,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const REALISM = {
       SIZE_MULTIPLIER: 0.98,
       MIN_RADIUS: 6,
-      MAX_RADIUS: 45,
+      MAX_RADIUS: 43,
       IRIS_SHRINK: 0.98,
       RING_MARGIN: 0.92,
       PUPIL_RATIO: 0.32,
@@ -413,19 +413,30 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // blink sensitivity thresholds:
     const BLINK = { T0: 0.10, T1: 0.18 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
 
+    // drawing noise onto the element
     const noiseCanvas = document.createElement('canvas');
+
+    // 2D drawing context so you can draw on the canvas
     const noiseCtx = noiseCanvas.getContext('2d');
 
+    // Sets the canvas width
     noiseCanvas.width = 64;
+
+    // Sets the canvas height
     noiseCanvas.height = 64;
 
 
+    /* --- Configuration & State --- */
+
     // shadows & lighting
     const eyeColorLayer = document.createElement('canvas');
+
     // iris color
     const eyeColorCtx = eyeColorLayer.getContext('2d');
+
     // visible area mask
     const eyeShadeLayer = document.createElement('canvas');
+
     // combines all of them
     const eyeShadeCtx = eyeShadeLayer.getContext('2d');
     
@@ -440,21 +451,25 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     // Base circular mask for eye color
     const eyeMaskLayer = document.createElement('canvas'); // Creates a canvas element to store the base iris mask (white circle representing the eye boundary)
+    
     // Draws + clips the main mask
     const eyeMaskCtx = eyeMaskLayer.getContext('2d'); // Gets the 2D drawing context for the eyeMaskLayer to draw on it
 
     // Blurred copy of main mask
     const eyeMaskFeather = document.createElement('canvas'); // Creates a canvas for a blurred/feathered version of the iris mask for smooth edges
+    
     // Blurs the main mask
     const eyeMaskFeatherCtx = eyeMaskFeather.getContext('2d'); // Gets the 2D drawing context for the eyeMaskFeather to apply blur effects
 
     // Eyelid cutout (white with transparent hole)
     const eyeCutLayer = document.createElement('canvas'); // Creates a canvas to store the eyelid shape that will be subtracted/cut from the iris
+    
     // Draws and erases eyelid shape
     const eyeCutCtx = eyeCutLayer.getContext('2d'); // Gets the 2D drawing context for the eyeCutLayer to draw the eyelid polygon
 
     // Blurred eyelid mask
     const eyeCutFeather = document.createElement('canvas'); // Creates a canvas for a blurred version of the eyelid cutout for smooth transitions
+    
     // Blurs eyelid mask edges
     const eyeCutFeatherCtx = eyeCutFeather.getContext('2d'); // Gets the 2D drawing context for the eyeCutFeather to apply blur effects to the eyelid mask
 
@@ -471,7 +486,11 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       eyeCutFeatherCtx.clearRect(0,0,s,s);
     }
 
+
+    /* --- Blend Modes And Picks a Safe Fallback --- */
+
     const testCtx = document.createElement('canvas').getContext('2d');
+   
     // detection for common compositing operations
     const BLEND_SUPPORT = {};
 
@@ -489,7 +508,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return 'source-over';
     }
 
-    // Landmark index constants to compute centers, radii, eyelid polygons
+    // landmark index lists to locate the iris and eyelid shapes for each eye
     const LEFT_IRIS_RING = [468,469,470,471];
     const LEFT_IRIS_CENTER = 472;
     const RIGHT_IRIS_RING = [473,474,475,476];
@@ -500,15 +519,16 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const RIGHT_EYE_LOWER = [374,373,390,249,263]; 
 
 
+     /* --- Utility Functions For Status, Security, Sizing and Math --- */
 
-    // Show message to the user:
-    // show status text and style
+    // Show message to the user
     function setStatus(msg, isOk = null) {
       statusEl.textContent = msg || '';
       statusEl.className = 'efw-status efw-small';
       if (isOk === true)  statusEl.className += ' efw-status-ok';
       if (isOk === false) statusEl.className += ' efw-status-bad';
     }
+    
     // show animated loading text
     function setLoadingStatus(msg) {
       statusEl.innerHTML = msg + ' <span class="loading-dot"></span><span class="loading-dot"></span><span class="loading-dot"></span>';
@@ -536,12 +556,15 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     // Euclidean distance between points
     function dist(a,b){ return Math.hypot(a.x - b.x, a.y - b.y); }
+   
     // canvas coords helper
     function pt(L,i){ return { x: L[i].x * canvas.width, y: L[i].y * canvas.height }; }
+   
     // clamp between 0 and 1
     function clamp01(x){ return x < 0 ? 0 : (x > 1 ? 1 : x); }
 
-    // Eye geometry & smoothing:
+
+    /* --- Eye Geometry & Smoothing --- */
 
     // returns normalized openness = vertical distance / horizontal distance
     function eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx) {
@@ -553,6 +576,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // ease between a and b
     function smoothstep(a,b,x){ const t = Math.max(0, Math.min(1, (x - a)/(b - a))); return t*t*(3-2*t); }
 
+    // calculate the center of the eye
     function calculateEyeCenter(landmarks, ringIndices, centerIdx) {
       const W = canvas.width, H = canvas.height;
       if (Number.isInteger(centerIdx) && landmarks[centerIdx]) {
@@ -613,6 +637,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       const up = ptsFromIndices(landmarks, upperIdx);
       const low = ptsFromIndices(landmarks, lowerIdx);
       if (up.length < 2 || low.length < 2) return null;
+      // @
        return up.concat(low); 
     }
 
@@ -639,21 +664,11 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return out;
     }
 
-   // Main routine that composes everything and draws the resulting
-   // colored iris onto the main canvas at given center:
-   // calculates r (shrunk iris radius) and S (working size),
-   // ensures layers sized,
-   // builds mask (circular + eyelid cut via buildEyelidMask),
-   // draws the color into eyeColorLayer (drawColor),
-   // uses destination-in compositing to apply mask to eyeColorLayer and eyeShadeLayer,
-   
-   // on main ctx: set composite operations and draw the image layers:
-   // eyeColorLayer (base), then screen blend of eyeColorLayer
-   // for fill boost, then overlay blend of eyeShadeLayer for shading.
-   // Note: lots of commented experimental code for shading, fibers,
-   // highlights—currently most shading is commented out; this is
-   // where the shadows may originate depending on which parts are enabled.
 
+    /* --- Renders Iris Color and Shading --- */
+    /*(using masks, eyelids, and face-tracking)*/
+
+    // paint the eye with color and shading
     function paintEye(center, radius, color, alpha, blendMode) {
       if (!center || !radius || radius < 3) return;
       const r = Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, radius * REALISM.IRIS_SHRINK));
@@ -665,41 +680,31 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
      
       ensureMaskSize(S);
 
-      // clear flow used in current buildMask
-      // 1. Create eyeCutLayer: fill white full-rect, then destination-out the eyelid polygon so eyelid area becomes transparent (makes a cutout)
-      // 2.Blur that cut in eyeCutFeather (eyeCutFeatherCtx.filter blur)
-      // 3. Draw the feathered cut onto eyeMaskCtx with globalCompositeOperation = 'destination-out' to subtract the eyelid area from the main mask. This is the step that both clips and creates soft edges
-      // commented parts show experiments with globalAlpha to control clip strength
 
-      function buildEyelidMask(ctx, lidPoly, center, S){
+      function buildEyelidMask(ec, lidPoly, center, S){
 
         // 1️⃣  Create eyelid cut mask (no shadows)    
-          eyeCutCtx.save();
-          // eyeCutCtx.clearRect(0,0,S,S);
-          eyeCutCtx.translate(S/2, S/2);
-      
-      // `````
+          ec.save();
+          ec.translate(S/2, S/2);
 
           // White background — this defines the area that will be clipped out (square)
-          eyeCutCtx.fillStyle = 'rgba(255,255,255,1)';
-          eyeCutCtx.fillRect(-S/2, -S/2, S, S);
+          ec.fillStyle = 'rgba(255,255,255,1)';
+          ec.fillRect(-S/2, -S/2, S, S);
 
           // Subtract the eyelid polygon area (cutout)
-          eyeCutCtx.globalCompositeOperation = 'destination-out';
-          // eyeCutCtx.globalCompositeOperation = 'destination-in';
+          ec.globalCompositeOperation = 'destination-out';
 
-          eyeCutCtx.beginPath();
-          eyeCutCtx.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
-         
+          ec.beginPath();
+          ec.moveTo(lidPoly[0].x - center.x, lidPoly[0].y - center.y);
+
           for (let i=1;i<lidPoly.length;i++){
             const p = lidPoly[i];
-            eyeCutCtx.lineTo(p.x - center.x, p.y - center.y);
+            ec.lineTo(p.x - center.x, p.y - center.y);
           }
-          eyeCutCtx.closePath();
-          eyeCutCtx.fill();
+          ec.closePath();
+          ec.fill();
 
-      // `````
-          eyeCutCtx.restore();
+          ec.restore();
 
           // 2️⃣ Light feather (very subtle blur just for soft edges)
           eyeCutFeatherCtx.save();
@@ -716,24 +721,15 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
           // 3️⃣ Apply to the mask — this part clips the color filter
           eyeMaskCtx.save();
           eyeMaskCtx.globalCompositeOperation = 'destination-out';
-          // eyeMaskCtx.globalCompositeOperation = 'destination-in';
 
-
-     
-          // ↓ Control clip strength here (1 = full clip, 0 = none) // 1 - 0.5 - 0.9
-          // eyeMaskCtx.globalAlpha = Math.max(0, Math.min(1, EYELID_MASK.CLIP_STRENGTH)); 
- 
-          
           eyeMaskCtx.drawImage(eyeCutFeather, 0, 0);
           eyeMaskCtx.restore();
       }
 
       
       // Draw source into ctx with blur filter for feathered mask
-      function applyFeather(ctx, sourceCanvas, blurPx, S) {        
+      function applyFeather(ctx, sourceCanvas) {        
         ctx.save();
-        // ctx.clearRect(0, 0, S, S);
-        // try { ctx.filter = `blur(${blurPx}px)`; } catch (_) {}
         ctx.drawImage(sourceCanvas, 0, 0);
         try { ctx.filter = 'none'; } catch (_) {}
         ctx.restore();
@@ -741,7 +737,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
 
 /*
-Step	Purpose
+Explanation, Step	Purpose:
 1	    Create base circular mask
 2	    If eyelid active, build a cut shape
 3	    Erase that shape from mask
@@ -760,7 +756,6 @@ Step	Purpose
 
           // create a circular base mask
           eyeMaskCtx.arc(0, 0, r, 0, 2 * Math.PI); // make it circle
-          // eyeMaskCtx.fillStyle = '#fff';
           eyeMaskCtx.fill();
           
           eyeMaskCtx.restore();
@@ -771,10 +766,10 @@ Step	Purpose
 
             // the shadows are creating here
             buildEyelidMask(eyeCutCtx, lidPoly, center, S)
-
             }
+
           // Apply final feathering to the mask itself
-          applyFeather(eyeMaskFeatherCtx, eyeMaskLayer, 1.2, S);
+          applyFeather(eyeMaskFeatherCtx, eyeMaskLayer);
 
       })();
 
@@ -784,11 +779,12 @@ Step	Purpose
   
       // draw the color into eyeColorCtx
       (function drawColor(){
-
-      // eyeColorCtx:
-      // clip to circle, set globalAlpha = alpha, fill with selected color
-      // punch pupil hole via destination-out with radius r * PUPIL_RATIO
-     
+      
+      /*
+        Explanation, eyeColorCtx:
+        clip to circle, set globalAlpha = alpha, fill with selected color
+        punch pupil hole via destination-out with radius r * PUPIL_RATIO
+      */
         const cx = eyeColorCtx;
         cx.save();
         cx.clearRect(0,0,S,S);
@@ -810,12 +806,15 @@ Step	Purpose
         cx.restore();
       })();
 
-      // After drawColor, apply eyeMaskFeather to both eyeColorCtx and eyeShadeCtx by setting
-      // globalCompositeOperation = 'destination-in' and drawImage(eyeMaskFeather).
-      // This ensures color & shade appear only inside the feathered mask
+      /*
+        Explanation:
+        After drawColor, apply eyeMaskFeather to both eyeColorCtx and eyeShadeCtx by setting
+        globalCompositeOperation = 'destination-in' and drawImage(eyeMaskFeather).
+        This ensures color & shade appear only inside the feathered mask
+      */
 
-      // Apply the masks
-      eyeColorCtx.globalCompositeOperation = 'destination-in'; // Both the color and the shading will appear only within the eye shape.
+      // Apply the masks the colors and the shading only within the eye shape
+      eyeColorCtx.globalCompositeOperation = 'destination-in'; 
       eyeColorCtx.drawImage(eyeMaskFeather, 0, 0);
       eyeShadeCtx.globalCompositeOperation = 'destination-in';
       eyeShadeCtx.drawImage(eyeMaskFeather, 0, 0);
@@ -838,16 +837,18 @@ Step	Purpose
       ctx.restore();
     }
 
-    // Get the face points from the video and calculate the eye position in each frame
+    // Get the face landmark points from the video and calculate the eye position in each frame
     function onFaceMeshResults(results) {
 
-      // Explanation:
-      // if no face landmarks: reset currentEyes and return.
-      // compute openL/openR via eyeOpenness,
-      // build eyelid polygons for left/right via buildEyeClip and smooth them,
-      // compute left/right iris centers and radii,
-      // bias centers, build next states for left/right (center, radius, open),
-      // smooth into currentEyes.left/right (so the overlay is not jumpy).
+      /*
+        Explanation:
+        if no face landmarks: reset currentEyes and return.
+        compute openL/openR via eyeOpenness,
+        build eyelid polygons for left/right via buildEyeClip and smooth them,
+        compute left/right iris centers and radii,
+        bias centers, build next states for left/right (center, radius, open),
+        smooth into currentEyes.left/right (so the overlay is not jumpy).
+      */
 
       // If no faces are found, reset the eye state and exit the function
       if (!results.multiFaceLandmarks || !results.multiFaceLandmarks.length) {
@@ -856,7 +857,8 @@ Step	Purpose
       }
 
       const landmarks = results.multiFaceLandmarks[0];
-      // debug tests:
+
+    // debug tests:
 
     // draws dots + indices on the main canvas
     // debug_drawAllLandmarks(ctx, landmarks, { showIndex: true, color: '#ff0000', size: 2 });
@@ -870,9 +872,10 @@ Step	Purpose
     // leftIrisDetected = landmarks[LEFT_IRIS_CENTER] && landmarks[LEFT_IRIS_CENTER].z > -0.2;
     // rightIrisDetected = landmarks[RIGHT_IRIS_CENTER] && landmarks[RIGHT_IRIS_CENTER].z > -0.2;
 
+      // debug test
       if (DEBUG_SHOW_RIGHT_EYE) {
-        const lists = debug_getRightEyeLandmarkLists(landmarks, 48); // adjust radiusPx if needed
-        if (lists) {
+        // const lists = debug_getRightEyeLandmarkLists(landmarks, 48); // adjust radiusPx if needed
+        // if (lists) {
           // // print a compact table of indices + coords
           // const out = [];
           // for (const i of (new Set([].concat(lists.known, lists.nearCenter, lists.insideEyelid)))) {
@@ -883,7 +886,7 @@ Step	Purpose
           // console.table(out);
           // // draw on canvas (visual)
           // debug_drawRightEyeLandmarks(ctx, lists, { showIndex: true });
-        }
+        // }
         // console.table(lists.nearCenter)
       }
            
@@ -942,18 +945,21 @@ Step	Purpose
       };
     }
 
-    // Handles video frames
+   
+    // processes each video frame and draws eye effects
     async function processVideoFrame() {
 
-    // Explanation:
-    // 1. returns early if not running or video not ready, otherwise draws current video frame to canvas.
-    // 2. sends the video frame to faceMesh.send({image: video})
-    // (FaceMesh will call onFaceMeshResults asynchronously).
-    // 3. reads color & alpha from UI, calculates blink gates per
-    // eye using smoothstep and BLINK thresholds, multiplies
-    // alpha by gate to fade when closing.
-    // 4. calls paintEye for left/right if alpha>threshold and eye data present.
-    // 5. requests next animation frame while running.
+      /*
+       Explanation:
+       1. returns early if not running or video not ready, otherwise draws current video frame to canvas.
+       2. sends the video frame to faceMesh.send({image: video})
+       (FaceMesh will call onFaceMeshResults asynchronously).
+       3. reads color & alpha from UI, calculates blink gates per
+       eye using smoothstep and BLINK thresholds, multiplies
+       alpha by gate to fade when closing.
+       4. calls paintEye for left/right if alpha>threshold and eye data present.
+       5. requests next animation frame while running.
+      */
 
       if (!running || !video.videoWidth || !video.videoHeight) {
         if (running) animationId = requestAnimationFrame(processVideoFrame);
@@ -1005,25 +1011,6 @@ Step	Purpose
         // }
         // debug_drawEyelids(ctx, currentEyes, currentEyelids)
 
-        
-//         if (currentEyes.left && currentEyelids.left) {
-//   ctx.strokeStyle = '#00FF00';
-//   ctx.lineWidth = 1;
-//   ctx.beginPath();
-//   ctx.moveTo(currentEyelids.left[0].x, currentEyelids.left[0].y);
-//   for (let i = 1; i < currentEyelids.left.length; i++) {
-//     ctx.lineTo(currentEyelids.left[i].x, currentEyelids.left[i].y);
-//   }
-//   ctx.closePath();
-//   ctx.stroke();
-// }
-
-// ctx.fillStyle = '#FF0000';
-// for (const pt of currentEyelids.left) {
-//   ctx.beginPath();
-//   ctx.arc(pt.x, pt.y, 3, 0, Math.PI * 2);
-//   ctx.fill();
-// }
       }
 
       if (running) animationId = requestAnimationFrame(processVideoFrame);
@@ -1033,13 +1020,15 @@ Step	Purpose
 
     // Loads and prepares the face recognition model
     async function initializeFaceMesh() {
-      // Explanation:
-      // 1. verifies FaceMesh exists, creates new FaceMesh with
-      // locateFile pointing to CDN, sets options (maxNumFaces,
-      // refineLandmarks, confidence thresholds), attaches
-      // onResults handler, and initialize if available.
-      // 2. returns true if successful, otherwise sets error status.
-
+      /*
+        Explanation:
+        1. verifies FaceMesh exists, creates new FaceMesh with
+        locateFile pointing to CDN, sets options (maxNumFaces,
+        refineLandmarks, confidence thresholds), attaches
+        onResults handler, and initialize if available.
+        2. returns true if successful, otherwise sets error status.
+      */
+     
       try {
         setLoadingStatus('מאתחל זיהוי פנים');
 
@@ -1069,11 +1058,14 @@ Step	Purpose
     }
 
     async function startCamera() {
-      // Explanation:
-      // 1. checks secure context and getUserMedia support,
-      // 2. calls getUserMedia with ideal width/height/framerate, facingMode: 'user',
-      // 3. attaches stream to video, awaits video.ready, calls initializeFaceMesh, sets running = true, updates UI classes and buttons, starts processVideoFrame loop.
-      // 4. error handling: stops tracks and reports messages.
+      /*
+        Explanation:
+        1. checks secure context and getUserMedia support,
+        2. calls getUserMedia with ideal width/height/framerate, facingMode: 'user',
+        3. attaches stream to video, awaits video.ready, calls initialize FaceMesh, sets running = true, updates UI classes and buttons, starts processVideoFrame loop.
+        4. error handling: stops tracks and reports messages.
+      */
+
       try {
         // Security testing and support
         if (!isSecureContext()) { setStatus('דרוש HTTPS או localhost לגישה למצלמה', false); return; }
@@ -1087,11 +1079,11 @@ Step	Purpose
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user', // Front camera (selfie)
-            // Ideal quality and frame settings (portrait: 9:16)
+
+            // @ Ideal quality and frame settings (ratio: 9:16)
             width:  { ideal: 480, max: 720 },
             height: { ideal: 854, max: 1280 },
-            // width:  { ideal: 640, max: 1280 },
-            // height: { ideal: 480, max: 720 },
+
             frameRate: { ideal: 30, max: 60 }
           },
           audio: false
