@@ -2,6 +2,16 @@
   box-sizing: border-box;
 }
 
+
+#eye-filter-widget {
+  max-width: 55vw;
+  margin: 16px auto;
+  padding: 0 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+
 /* Card container */
 .efw-card {
   border: 1px solid #e5e7eb;
@@ -10,6 +20,7 @@
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
   background: #fff;
   direction: rtl;
+  /* min-width: 50vw; */
 }
 @media (max-width: 480px) {
   .efw-card {
@@ -22,7 +33,9 @@
   flex-direction: column;
   gap: 20px;
   align-items: center;
+  /* justify-content: center; */
 }
+/* TODO - fix the zoom and the button to disappear when I close the camera  */
 
 /* @ here is where you can change the size of the window with: aspect-ratio */
 /* Camera window */
@@ -32,22 +45,38 @@
   background: linear-gradient(135deg, #1e293b, #334155);
   border-radius: 12px;
   overflow: hidden;
+
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   /* aspect-ratio: 3/4; */
   aspect-ratio: 9/16;
+
+  min-width: 50vw;
+  max-width: 80vw;
+
+
+  /* height: 60vh; */
+  
   min-height: 60vh;
-  max-height: 80vh;
+  max-height: 70vh;
 }
+
+
+
+
 @media (max-width: 720px) {
   .efw-video-wrap {
-    min-height: 70vh;
-    max-height: 85vh;
+    /* min-width: 95vw; */
+    /* max-width: 80vw; */
+
+    /* min-height: 70vh;
+    max-height: 85vh; */
   }
 }
+
 @media (min-width: 721px) {
   .efw-video-wrap {
-    min-height: 65vh;
-    max-height: 75vh;
+    /* min-height: 65vh;
+    max-height: 75vh; */
   }
 }
 
@@ -56,7 +85,7 @@
   height: 100%;
   display: block;
   border-radius: 12px;
-  object-fit: contain;
+  object-fit: cover;
   transform: scaleX(-1);
 }
 
@@ -69,6 +98,8 @@ video#efw-video {
   object-fit: contain;
   opacity: 0;
   pointer-events: none;
+
+  
 }
 
 /* Text and layout */
