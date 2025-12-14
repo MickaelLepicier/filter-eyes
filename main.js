@@ -271,6 +271,13 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // Brightness control container
     const brightnessControlEl = document.querySelector('.efw-brightness-control'); 
 
+    // Brightness boost button (+10%)
+    const brightBoostBtn = document.getElementById('efw-bright-boost');
+    let brightBoostUsed = false;
+
+    // Intensity btn
+    const intensitySelect = document.querySelector('select.efw-intensity-btn');
+
 
     /* --- Utility functions for color manipulation --- */
 
@@ -1112,6 +1119,7 @@ Explanation, Step	Purpose:
         // Show that the camera is working
         wrapEl.classList.add('camera-running');
         btnStop.disabled = false;
+        resetBrightBoost()
 
         setStatus('המצלמה פועלת - זיהוי פנים פעיל', true);
         processVideoFrame();
@@ -1194,7 +1202,6 @@ Explanation, Step	Purpose:
     });
     
     // Handle intensity select dropdown
-    const intensitySelect = document.querySelector('select.efw-intensity-btn');
     if (intensitySelect) {
       intensitySelect.addEventListener('change', () => {
         const value = intensitySelect.value;
@@ -1209,18 +1216,14 @@ Explanation, Step	Purpose:
       });
     }
 
-
-    // Brightness boost button (+10%)
-    const brightBoostBtn = document.getElementById('efw-bright-boost');
-    let brightBoostUsed = false;
-
-
     function resetBrightBoost(){
         brightBoostUsed = false;
-        if (brightBoostBtn) {
-          brightBoostBtn.style.opacity = '1';
-          brightBoostBtn.style.pointerEvents = 'auto';
-        }
+        if (brightBoostBtn) brightBoostBtn.classList.remove('is-used')
+ 
+          // if (brightBoostBtn) {
+        //   brightBoostBtn.style.opacity = '1';
+        //   brightBoostBtn.style.pointerEvents = 'auto';
+        // }
     }
 
 
@@ -1240,8 +1243,7 @@ Explanation, Step	Purpose:
         brightnessControlEl.style.backgroundColor = brightColor;
     
         // Optional: disable the button visually
-        brightBoostBtn.style.opacity = '0.5';
-        brightBoostBtn.style.pointerEvents = 'none';
+        brightBoostBtn.classList.add('is-used')
       });
     }
     

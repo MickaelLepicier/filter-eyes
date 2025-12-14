@@ -437,6 +437,12 @@ select.efw-inline option {
   opacity: 0;
   pointer-events: none;
 }
+/* “used once” state */
+#efw-bright-boost.is-used {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
 
 /* Floating print button */
 #efw-capture {
