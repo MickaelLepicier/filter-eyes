@@ -1,4 +1,622 @@
-(function(){
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>פילטר צבעי עיניים (מסומן) – blink gating</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js"></script>
+
+   <style>
+
+#eye-filter-widget * {
+  box-sizing: border-box;
+}
+
+
+#eye-filter-widget {
+  justify-items: center;
+  margin: 16px auto;
+  padding: 0 8px;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+               Oxygen, Ubuntu, Cantarell, sans-serif;
+}
+
+
+/* Card container */
+.efw-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 20px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.1);
+  background: #fff;
+  direction: rtl;
+}
+
+@media (max-width: 480px) {
+  .efw-card {
+    padding: 12px;
+  }
+}
+
+.efw-row {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  align-items: center;
+}
+
+/* @ here is where you can change the size of the window with: aspect-ratio */
+/* Camera window */
+.efw-video-wrap {
+  position: relative;
+  width: 670px;
+  height: 700px;                
+  aspect-ratio: 9 / 16; 
+  background: linear-gradient(135deg, #1e293b, #334155);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+@media (max-width: 720px) {
+  .efw-video-wrap {
+    max-width: 95vw;
+    }
+}
+
+
+#efw-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  border-radius: 12px;
+  object-fit: cover;
+  transform: scaleX(-1);
+}
+
+video#efw-video {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  pointer-events: none;
+
+  
+}
+
+/* Text and layout */
+.efw-label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.efw-inline {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.efw-brightness-control{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 50%;
+  align-items: center;
+  justify-self: center;
+  margin: 12px 0;
+  border-radius: 10px;
+}
+
+/* Select dropdown styling */
+select.efw-inline {
+  padding: 10px 12px;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  color: #333;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 180px;
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 20px;
+  padding-right: 36px;
+}
+
+select.efw-inline:hover {
+  border-color: #999;
+  background-color: #f9f9f9;
+}
+
+select.efw-inline:focus {
+  outline: none;
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.1);
+}
+
+select.efw-inline option {
+  padding: 10px;
+  background: #fff;
+  color: #333;
+}
+
+/* Chips (round selection buttons) */
+.efw-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 34px;
+  min-width: 96px;
+  padding: 0 14px;
+  border-radius: 9999px;
+  border: 2px solid #cbd5e1;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.35);
+}
+.efw-chip::after {
+  content: attr(title);
+}
+.efw-chip:hover {
+  transform: scale(1.04);
+  border-color: #475569;
+}
+.efw-chip.active {
+  border-color: #0ea5e9;
+  box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
+}
+
+/* Buttons */
+.efw-btn {
+  appearance: none;
+  border: 1px solid #0f172a;
+  background: #0f172a;
+  color: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  font-size: 14px;
+}
+.efw-btn:hover {
+  background: #1e293b;
+  transform: translateY(-1px);
+}
+.efw-btn.sec {
+  background: #fff;
+  color: #0f172a;
+  border-color: #cbd5e1;
+}
+.efw-btn.sec:hover {
+  background: #f1f5f9;
+}
+.efw-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.efw-small {
+  font-size: 12px;
+  color: #64748b;
+  line-height: 1.4;
+}
+
+.efw-status-bad {
+  color: #dc2626;
+  font-weight: 600;
+}
+.efw-status-ok {
+  color: #059669;
+  font-weight: 600;
+}
+
+.efw-intensity-btn {
+  flex: 1;
+  padding: 10px 16px;
+  border: 2px solid #ccc;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.efw-intensity-btn:hover {
+  border-color: #999;
+}
+
+.efw-intensity-btn.active {
+  background: #333;
+  color: #fff;
+  border-color: #333;
+}
+
+.efw-status {
+  margin-top: 12px;
+  min-height: 24px;
+  white-space: pre-line;
+  padding: 8px;
+  background: #f8fafc;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+}
+
+.efw-color-input {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Loading animation */
+.loading-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0ea5e9;
+  margin: 0 2px;
+  animation: loading 1.4s infinite ease-in-out both;
+}
+.loading-dot:nth-child(1) {
+  animation-delay: -0.32s;
+}
+.loading-dot:nth-child(2) {
+  animation-delay: -0.16s;
+}
+@keyframes loading {
+  0%, 80%, 100% {
+    transform: scale(0);
+  }
+  40% {
+    transform: scale(1);
+  }
+}
+
+/* Static logo above the camera window */
+.efw-logo {
+  position: absolute;
+  z-index: 3;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border-radius: 9999px;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-weight: 700;
+  border: 1px solid #0f172a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+  user-select: none;
+  font-size: 14px;
+  line-height: 1;
+}
+
+/* Center camera activation button */
+#efw-start-center {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 16px 32px;
+  border-radius: 12px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  font-size: 18px;
+  font-weight: 700;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  opacity: 1;
+  pointer-events: auto;
+}
+#efw-start-center:hover {
+  background: #1e293b;
+  transform: translate(-50%, -50%) scale(1.05);
+}
+#efw-start-center:active {
+  transform: translate(-50%, -50%) scale(0.98);
+}
+.camera-running #efw-start-center {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Floating color panel */
+.efw-palette {
+  position: absolute;
+  z-index: 4;
+  bottom: 100px;
+  left: 50%;
+  transform: translate(-50%, -8px) scale(0.98);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  background: transparent;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.15);
+  width: min(92%, 520px);
+  padding: 12px;
+}
+.efw-video-wrap.palette-open .efw-palette {
+  opacity: 1;
+  transform: translate(-50%, 0) scale(1);
+  pointer-events: auto;
+}
+
+/* Floating color button */
+#efw-fab {
+  position: absolute;
+  z-index: 4;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 22px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#efw-fab:hover {
+  transform: translateX(-50%) scale(1.05);
+  filter: brightness(1.10);
+}
+#efw-fab:active {
+  transform: translateX(-50%) scale(0.90);
+}
+.camera-running #efw-fab {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* Brightness boost button */
+#efw-bright-boost {
+  position: absolute;
+  z-index: 4;
+  bottom: 40px;
+  left: calc(50% - 72px);
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 22px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#efw-bright-boost:hover {
+  transform: translateX(-50%) scale(1.05);
+  filter: brightness(1.10);
+}
+#efw-bright-boost:active {
+  transform: translateX(-50%) scale(0.90);
+}
+.camera-running #efw-bright-boost {
+  opacity: 1;
+  pointer-events: auto;
+}
+.efw-video-wrap.palette-open #efw-bright-boost {
+  opacity: 0;
+  pointer-events: none;
+}
+/* “used once” state */
+#efw-bright-boost.is-used {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+
+/* Floating print button */
+#efw-capture {
+  position: absolute;
+  z-index: 4;
+  bottom: 40px;
+  left: calc(50% + 72px);
+  transform: translateX(-50%);
+  width: 56px;
+  height: 56px;
+  border-radius: 9999px;
+  border: none;
+  background: #0f172a;
+  color: #fff;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 22px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#efw-capture:hover {
+  transform: translateX(-50%) scale(1.05);
+  filter: brightness(1.10);
+}
+#efw-capture:active {
+  transform: translateX(-50%) scale(0.90);
+}
+.camera-running #efw-capture {
+  opacity: 1;
+  pointer-events: auto;
+}
+.efw-video-wrap.palette-open #efw-capture {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* Color name tag */
+.efw-color-tag {
+  position: absolute;
+  z-index: 4;
+  bottom: 6px;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  justify-self: center;
+  background: rgba(15, 23, 42, 0.72);
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  backdrop-filter: saturate(120%) blur(4px);
+  -webkit-backdrop-filter: saturate(120%) blur(4px);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+.efw-video-wrap.palette-open .efw-color-tag {
+  opacity: 0;
+}
+
+   </style>
+
+</head>
+<body>
+<div id="eye-filter-widget" >
+
+  <div class="efw-card">
+    <div class="efw-row">
+      <div style="width: 100%;">
+      <!-- <div > -->
+        <div class="efw-video-wrap">
+           <!-- Static logo fixed at the top of the camera window -->
+           <div class="efw-logo">Kerato.Life️👁</div>
+          
+           <!-- Camera launch button in the center -->
+          <button id="efw-start-center" type="button">הפעל מצלמה</button>
+
+          <!-- Popup: 16 colors + intensity slider -->
+          <div class="efw-palette" id="efw-palette" role="dialog" aria-hidden="true">
+            <div class="efw-inline" style="margin-bottom:8px">
+              <input id="efw-color" class="efw-color-input" type="hidden" value="#b7a49d" aria-label="בחר צבע" />
+              <div class="efw-inline">
+                <div class="efw-chip active" data-color="#C8A89E" title="Dune" style="background:#C8A89E"></div>
+                <div class="efw-chip" data-color="#8C5B3B" title="Sand ER19D" style="background:#8C5B3B"></div>
+                <div class="efw-chip" data-color="#B8912E" title="Honey Gold" style="background:#B8912E"></div>
+                <div class="efw-chip" data-color="#A27B34" title="Sahara" style="background:#A27B34"></div>
+                <div class="efw-chip" data-color="#9B7B42" title="Tropical" style="background:#9B7B42"></div>
+                <div class="efw-chip" data-color="#9CB08C" title="Savana" style="background:#9CB08C"></div>
+                <div class="efw-chip" data-color="#6C8B5C" title="Pistache CT88" style="background:#6C8B5C"></div>
+                <div class="efw-chip" data-color="#A6CBB7" title="Jade" style="background:#A6CBB7"></div>
+                <div class="efw-chip" data-color="#C5DAD0" title="Arctique" style="background:#C5DAD0"></div>
+                <div class="efw-chip" data-color="#95B7C7" title="Green Water" style="background:#95B7C7"></div>
+                <div class="efw-chip" data-color="#6AA6C9" title="Turquoise" style="background:#6AA6C9"></div>
+                <div class="efw-chip" data-color="#5C82C4" title="New Blue" style="background:#5C82C4"></div>
+                <div class="efw-chip" data-color="#4B5C91" title="Pacific" style="background:#4B5C91"></div>
+                <div class="efw-chip" data-color="#8DB5E0" title="Azur" style="background:#8DB5E0"></div>
+                <div class="efw-chip" data-color="#D4D9E8" title="Polar Grey" style="background:#D4D9E8"></div>
+                <div class="efw-chip" data-color="#AFAFB9" title="Pearl" style="background:#AFAFB9"></div>
+              </div>
+                <!-- <div class="efw-inline">
+                <div class="efw-chip active" data-color="#b7a49d" title="Dune" style="background:#b7a49d"></div>
+                <div class="efw-chip" data-color="#79655a" title="Sand ER19D" style="background:#79655a"></div>
+                <div class="efw-chip" data-color="#947d51" title="Honey Gold" style="background:#947d51"></div>
+                <div class="efw-chip" data-color="#947d51" title="Sahara" style="background:#947d51"></div>
+                <div class="efw-chip" data-color="#998a69" title="Tropical" style="background:#998a69"></div>
+                <div class="efw-chip" data-color="#8e9988" title="Savana" style="background:#8e9988"></div>
+                <div class="efw-chip" data-color="#657960" title="Pistache CT88" style="background:#657960"></div>
+                <div class="efw-chip" data-color="#abc0ad" title="Jade" style="background:#abc0ad"></div>
+                <div class="efw-chip" data-color="#d5e4df" title="Arctique" style="background:#d5e4df"></div>
+                <div class="efw-chip" data-color="#a1bccf" title="Green Water" style="background:#a1bccf"></div>
+                <div class="efw-chip" data-color="#9bacbe" title="Turquoise" style="background:#9bacbe"></div>
+                <div class="efw-chip" data-color="#8298c7" title="New Blue" style="background:#8298c7"></div>
+                <div class="efw-chip" data-color="#7785a8" title="Pacific" style="background:#7785a8"></div>
+                <div class="efw-chip" data-color="#c4d5ff" title="Azur" style="background:#c4d5ff"></div>
+                <div class="efw-chip" data-color="#e6ebff" title="Polar Grey" style="background:#e6ebff"></div>
+                <div class="efw-chip" data-color="#aeb2bd" title="Pearl" style="background:#aeb2bd"></div>
+              </div> -->
+            </div>
+
+            <div class="efw-brightness-control" >
+             
+              <label class="efw-label">עוצמת הצבע:</label>
+              <!-- @ to change the intensity of the color filter to 45% or 55% change the max -->
+              <input id="efw-alpha" class="efw-slider" type="hidden" min="10" max="55" value="55"  />
+                 <select class="efw-intensity-btn" >
+                    <!-- <option class="efw-intensity-btn" value="">--תבחר את בהירות הצבע--</option> -->
+                    <option class="efw-intensity-btn" value="33">נמוך</option>
+                    <option class="efw-intensity-btn" value="45" selected>ממוצע</option>
+                    <option class="efw-intensity-btn" value="55">גבוה</option>
+                 </select>
+            </div>
+
+          </div>
+
+          <canvas id="efw-canvas"></canvas>
+          <video id="efw-video" playsinline autoplay muted></video>
+
+          <!-- Floating round button to open/close the panel -->
+          <button id="efw-fab" type="button" title="בחירת צבע" aria-controls="efw-palette" aria-expanded="false">🎨</button>
+        
+          <!-- Brightness boost button -->
+          <button id="efw-bright-boost" type="button" title="יש סיכוי שלאחר הניתוח תהיה בהירות מוגברת" aria-label="הגברת בהירות">🔅</button>
+
+          <!--  Start updated UI  -->
+
+          <!-- Button to capture pictures -->
+          <button id="efw-capture" type="button" title="צילום" aria-label="צילום">📸</button>
+          <div id="efw-color-tag" class="efw-color-tag" aria-live="polite"></div>
+        
+          <!--  End updated UI  -->
+      
+        </div>
+        <div id="efw-status" class="efw-status efw-small">לחץ על "הפעל מצלמה" להתחלה</div>
+        <button id="efw-stop" class="efw-btn sec" disabled style="margin-top:16px;padding:14px 32px">עצור מצלמה</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+
+    (function(){
     'use strict';
 
 
@@ -1257,3 +1875,8 @@ Explanation, Step	Purpose:
  //  End updated UI  
 
   })();
+
+  </script>
+</div>
+</body>
+</html>
