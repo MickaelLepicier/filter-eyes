@@ -1,20 +1,6 @@
 (function(){
     'use strict';
 
-// TODOs
-// - order the comments 
-// - put in every section what is it responsible for
-// - Ask the company for letter
-
-// explain to Nir that where there is @ its where I fixed some bugs like the shade or the ratio of the video
-
-// cut the Shulaim in the video and to be full screen
-// bug - when I close the the the camera the 3rd button is still showin - hide him
-// make the screen of the video to be like the french - https://neoris-eyes.com/simulation/
-
-// create a letter for the company - working in a team with vibe coding
-// compress the code to one file
-
 
 
 /* --- Debugging Functions --- */
@@ -210,7 +196,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     };
 
     // more left eye landmark - [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]
-    // more tight eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
+    // more right eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
     
     // tests:
     // draw(lists.known, '#ff9900', 3);
@@ -527,11 +513,10 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const LEFT_IRIS_CENTER = 472;
     const RIGHT_IRIS_RING = [473,474,475,476];
     const RIGHT_IRIS_CENTER = 477;
-    const LEFT_EYE_UPPER = [159,158,157,173,133];
+    const LEFT_EYE_UPPER = [159,158,157,173,133]; 
     const LEFT_EYE_LOWER = [145,144,163,7,33];
-    const RIGHT_EYE_UPPER = [386,385,384,398,362]; 
+    const RIGHT_EYE_UPPER = [386,385,384,398,362];  
     const RIGHT_EYE_LOWER = [374,373,390,249,263]; 
-
 
      /* --- Utility Functions For Status, Security, Sizing and Math --- */
 
