@@ -379,10 +379,10 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     // iris rendering parameters
     const REALISM = {
-      SIZE_MULTIPLIER: 0.98,
+      SIZE_MULTIPLIER: 0.92,
       MIN_RADIUS: 6,
-      MAX_RADIUS: 43,
-      IRIS_SHRINK: 0.98,
+      MAX_RADIUS: 38,
+      IRIS_SHRINK: 0.92,
       RING_MARGIN: 0.92,
       PUPIL_RATIO: 0.32,
       LIMBAL_WIDTH: 0.18, // Control the limbal ring (dark ring around the iris)
@@ -1085,12 +1085,9 @@ Explanation, Step	Purpose:
         stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'user', // Front camera (selfie)
-
-            // TODO - the bug of the screen is here
-            // @ Ideal quality and frame settings (ratio: 9:16)
-            width:  { ideal: 480, max: 720 },
-            height: { ideal: 854, max: 1280 },
-
+            aspectRatio: 9 / 16,
+            width:  { ideal: 670, max: 720 },
+            height: { ideal: 700, max: 1280 },
             frameRate: { ideal: 30, max: 60 }
           },
           audio: false
