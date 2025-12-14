@@ -59,10 +59,9 @@ To learn and experiment with:
 
 ## 🧪 Project Status
 
-- ✔ Active development
-- ⚙ Some visual effects are still being optimized
-- 🛠 Ongoing experiments with masks and blend modes
-
+- Done
+- Maybe there will be some updates later on
+  
 ---
 
 ## 🧠 JavaScript Structure (High Level)
