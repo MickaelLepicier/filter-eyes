@@ -332,14 +332,25 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     setWrapBgFromColor(colorInp.value);
     updateColorTag();
     
+// console.log('Checking elements:', { fabBtn, wrapEl, pal, intensitySelectOption });
 
    // End Color Tag
     if (fabBtn && wrapEl && pal){
+     
       fabBtn.addEventListener('click', ()=>{
         const isOpen = wrapEl.classList.toggle('palette-open');
         fabBtn.setAttribute('aria-expanded', String(isOpen));
         pal.setAttribute('aria-hidden', String(!isOpen));
       });
+
+        intensitySelect.addEventListener('change', ()=>{
+        console.log('click')
+        const isOpen = wrapEl.classList.toggle('palette-open');
+        fabBtn.setAttribute('aria-expanded', String(isOpen));
+        pal.setAttribute('aria-hidden', String(!isOpen));
+      });
+
+
     }
 
 

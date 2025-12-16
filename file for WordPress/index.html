@@ -577,14 +577,14 @@ select.efw-inline option {
 
             <div class="efw-brightness-control" >
              
-              <label class="efw-label">עוצמת הצבע:</label>
+              <label class="efw-label">עוצמת הבהירות:</label>
               <!-- @ to change the intensity of the color filter to 45% or 55% change the max -->
               <input id="efw-alpha" class="efw-slider" type="hidden" min="10" max="55" value="55"  />
                  <select class="efw-intensity-btn" >
                     <!-- <option class="efw-intensity-btn" value="">--תבחר את בהירות הצבע--</option> -->
-                    <option class="efw-intensity-btn" value="33">נמוך</option>
-                    <option class="efw-intensity-btn" value="45" selected>ממוצע</option>
-                    <option class="efw-intensity-btn" value="55">גבוה</option>
+                    <option value="33">נמוך</option>
+                    <option value="45" selected>ממוצע</option>
+                    <option value="55">גבוה</option>
                  </select>
             </div>
 
@@ -954,6 +954,13 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
    // End Color Tag
     if (fabBtn && wrapEl && pal){
       fabBtn.addEventListener('click', ()=>{
+        const isOpen = wrapEl.classList.toggle('palette-open');
+        fabBtn.setAttribute('aria-expanded', String(isOpen));
+        pal.setAttribute('aria-hidden', String(!isOpen));
+      });
+
+        intensitySelect.addEventListener('change', ()=>{
+        console.log('click')
         const isOpen = wrapEl.classList.toggle('palette-open');
         fabBtn.setAttribute('aria-expanded', String(isOpen));
         pal.setAttribute('aria-hidden', String(!isOpen));
