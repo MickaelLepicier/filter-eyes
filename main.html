@@ -28,9 +28,10 @@
           <!-- Popup: 16 colors + intensity slider -->
           <div class="efw-palette" id="efw-palette" role="dialog" aria-hidden="true">
             <div class="efw-inline" style="margin-bottom:8px">
-              <input id="efw-color" class="efw-color-input" type="hidden" value="#b7a49d" aria-label="בחר צבע" />
+              <input id="efw-color" class="efw-color-input" type="hidden" value="#6AA6C9" aria-label="בחר צבע" />
               <div class="efw-inline">
-                <div class="efw-chip active" data-color="#C8A89E" title="Dune" style="background:#C8A89E"></div>
+                <div class="efw-chip" data-color="none" title="No color"></div>
+                <div class="efw-chip" data-color="#C8A89E" title="Dune" style="background:#C8A89E"></div>
                 <div class="efw-chip" data-color="#8C5B3B" title="Sand ER19D" style="background:#8C5B3B"></div>
                 <div class="efw-chip" data-color="#B8912E" title="Honey Gold" style="background:#B8912E"></div>
                 <div class="efw-chip" data-color="#A27B34" title="Sahara" style="background:#A27B34"></div>
@@ -40,7 +41,7 @@
                 <div class="efw-chip" data-color="#A6CBB7" title="Jade" style="background:#A6CBB7"></div>
                 <div class="efw-chip" data-color="#C5DAD0" title="Arctique" style="background:#C5DAD0"></div>
                 <div class="efw-chip" data-color="#95B7C7" title="Green Water" style="background:#95B7C7"></div>
-                <div class="efw-chip" data-color="#6AA6C9" title="Turquoise" style="background:#6AA6C9"></div>
+                <div class="efw-chip active" data-color="#6AA6C9" title="Turquoise" style="background:#6AA6C9"></div>
                 <div class="efw-chip" data-color="#5C82C4" title="New Blue" style="background:#5C82C4"></div>
                 <div class="efw-chip" data-color="#4B5C91" title="Pacific" style="background:#4B5C91"></div>
                 <div class="efw-chip" data-color="#8DB5E0" title="Azur" style="background:#8DB5E0"></div>
@@ -48,7 +49,8 @@
                 <div class="efw-chip" data-color="#AFAFB9" title="Pearl" style="background:#AFAFB9"></div>
               </div>
                 <!-- <div class="efw-inline">
-                <div class="efw-chip active" data-color="#b7a49d" title="Dune" style="background:#b7a49d"></div>
+                <div class="efw-chip efw-chip-none active" data-color="none" title="No color"></div>
+                <div class="efw-chip" data-color="#b7a49d" title="Dune" style="background:#b7a49d"></div>
                 <div class="efw-chip" data-color="#79655a" title="Sand ER19D" style="background:#79655a"></div>
                 <div class="efw-chip" data-color="#947d51" title="Honey Gold" style="background:#947d51"></div>
                 <div class="efw-chip" data-color="#947d51" title="Sahara" style="background:#947d51"></div>
@@ -71,19 +73,30 @@
              
               <label class="efw-label">עוצמת הצבע:</label>
               <!-- @ to change the intensity of the color filter to 45% or 55% change the max -->
-              <input id="efw-alpha" class="efw-slider" type="hidden" min="10" max="55" value="55"  />
+              <input id="efw-alpha" class="efw-slider" type="hidden" min="10" max="32" value="26"  />
                  <select class="efw-intensity-btn" >
                     <!-- <option class="efw-intensity-btn" value="">--תבחר את בהירות הצבע--</option> -->
-                    <option value="33">נמוך</option>
+                    <option value="20">נמוך</option>
+                    <option value="26" selected>ממוצע</option>
+                    <option value="32">גבוה</option>
+
+
+                    <!-- <option value="33">נמוך</option>
                     <option value="45" selected>ממוצע</option>
-                    <option value="55">גבוה</option>
+                    <option value="55">גבוה</option> -->
+
+                    
+                    <!-- <option value="20">נמוך</option>
+                    <option value="32" selected>ממוצע</option>
+                    <option value="45">גבוה</option> -->
+
                  </select>
             </div>
 
           </div>
 
-          <canvas id="efw-canvas"></canvas>
           <video id="efw-video" playsinline autoplay muted></video>
+          <canvas id="efw-canvas"></canvas>
 
           <!-- Floating round button to open/close the panel -->
           <button id="efw-fab" type="button" title="בחירת צבע" aria-controls="efw-palette" aria-expanded="false">🎨</button>

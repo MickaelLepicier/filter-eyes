@@ -2,7 +2,6 @@
     'use strict';
 
 
-
 /* --- Debugging Functions --- */
 
 // to use them I already implemented them, just search the
@@ -198,6 +197,19 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // more left eye landmark - [33, 246, 161, 160, 159, 158, 157, 173, 133, 155, 154, 153, 145, 144, 163, 7]
     // more right eye landmark - [463, 398, 384, 385, 386, 387, 388, 466, 263, 249, 390, 373, 374, 380, 381, 382, 362]
     
+    /*
+
+      // Left eye
+      const LEFT_EYE_LOWER = [33, 7, 163, 144, 145, 153, 154, 155]
+      const LEFT_EYE_UPPER = [133, 173, 157, 158, 159, 160, 161, 246]
+
+      // Right eye
+      const RIGHT_EYE_LOWER = [263, 249, 390, 373, 374, 380, 381, 382]
+      const RIGHT_EYE_UPPER = [362, 398, 384, 385, 386, 387, 388, 466]
+
+    */
+
+
     // tests:
     // draw(lists.known, '#ff9900', 3);
     // draw([386, 374, 263, 362], '#c800ffff', 4); // right eye
@@ -259,10 +271,13 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
 
     // Brightness boost button (+10%)
     const brightBoostBtn = document.getElementById('efw-bright-boost');
-    let brightBoostUsed = false;
+    const BRIGHT_BOOST_STEP = 10
+    let isBrightBoostOn = false
 
     // Intensity btn
     const intensitySelect = document.querySelector('select.efw-intensity-btn');
+
+    let prevAlphaBeforeNone = null
 
 
     /* --- Utility functions for color manipulation --- */
@@ -387,7 +402,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       MIN_RADIUS: 6,
       MAX_RADIUS: 38,
       IRIS_SHRINK: 0.92,
-      RING_MARGIN: 0.92,
+      RING_MARGIN: 1, // 1.05 0.98 0.92
       PUPIL_RATIO: 0.32,
       LIMBAL_WIDTH: 0.18, // Control the limbal ring (dark ring around the iris)
       LIMBAL_ALPHA: 0.55, // Control the limbal ring (dark ring around the iris)
@@ -520,14 +535,18 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 
     // landmark index lists to locate the iris and eyelid shapes for each eye
-    const LEFT_IRIS_RING = [468,469,470,471];
+    const LEFT_IRIS_RING = [468,469,159,471];
     const LEFT_IRIS_CENTER = 472;
-    const RIGHT_IRIS_RING = [473,474,475,476];
+    const RIGHT_IRIS_RING = [473,474,386,476];
     const RIGHT_IRIS_CENTER = 477;
-    const LEFT_EYE_UPPER = [159,158,157,173,133]; 
-    const LEFT_EYE_LOWER = [145,144,163,7,33];
-    const RIGHT_EYE_UPPER = [386,385,384,398,362];  
-    const RIGHT_EYE_LOWER = [374,373,390,249,263]; 
+
+    // Left eye
+    const LEFT_EYE_LOWER = [33, 7, 163, 144, 145, 153, 154, 155]
+    const LEFT_EYE_UPPER = [133, 173, 157, 158, 159, 160, 161, 246]
+
+    // Right eye
+    const RIGHT_EYE_LOWER = [263, 249, 390, 373, 374, 380, 381, 382]
+    const RIGHT_EYE_UPPER = [362, 398, 384, 385, 386, 387, 388, 466]
 
      /* --- Utility Functions For Status, Security, Sizing and Math --- */
 
@@ -642,10 +661,11 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return pts;
     }
     
-    // builds combined polygon (upper + reversed lower)
+    // builds combined polygon
     function buildEyeClip(landmarks, upperIdx, lowerIdx){
       const up = ptsFromIndices(landmarks, upperIdx);
       const low = ptsFromIndices(landmarks, lowerIdx);
+
       if (up.length < 2 || low.length < 2) return null;
        return up.concat(low); 
     }
@@ -718,8 +738,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
           // 2️⃣ Light feather (very subtle blur just for soft edges)
           eyeCutFeatherCtx.save();
           eyeCutFeatherCtx.clearRect(0,0,S,S);
-          
-          // making 2 shadows 
+        
           try { eyeCutFeatherCtx.filter = `blur(${EYELID_MASK.BLUR_PX}px)`; } catch(_) {}
 
           eyeCutFeatherCtx.drawImage(eyeCutLayer, 0, 0);
@@ -739,6 +758,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       // Draw source into ctx with blur filter for feathered mask
       function applyFeather(ctx, sourceCanvas) {        
         ctx.save();
+        try { ctx.filter = `blur(${EYELID_MASK.BLUR_PX}px)` } catch(_) {}
         ctx.drawImage(sourceCanvas, 0, 0);
         try { ctx.filter = 'none'; } catch (_) {}
         ctx.restore();
@@ -866,7 +886,7 @@ Explanation, Step	Purpose:
       }
 
       const landmarks = results.multiFaceLandmarks[0];
-
+      
     // debug tests:
 
     // draws dots + indices on the main canvas
@@ -1177,25 +1197,59 @@ Explanation, Step	Purpose:
       updateColorTag();
     });
 
-    document.querySelectorAll('.efw-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        colorInp.value = chip.dataset.color;
-        document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
-        chip.classList.add('active');
-        setWrapBgFromColor(colorInp.value);
-        updateColorTag();
 
-        // Reset the brightBoost
-        resetBrightBoost()
+document.querySelectorAll('.efw-chip').forEach(chip => {
+  chip.addEventListener('click', () => {
+    document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'))
+    chip.classList.add('active')
 
-        // Automatically close the panel after selecting a color
-        if (wrapEl && fabBtn && pal){
-          wrapEl.classList.remove('palette-open');
-          fabBtn.setAttribute('aria-expanded','false');
-          pal.setAttribute('aria-hidden','true');
-        }
-      });
-    });
+    const val = chip.dataset.color
+
+    if (val === 'none') {
+      if (prevAlphaBeforeNone === null) prevAlphaBeforeNone = alphaInp.value
+      alphaInp.value = 0
+      updateColorTag()
+      resetBrightBoost()
+      return
+    }
+
+    // if we were on "none", restore previous alpha (optional)
+    if (prevAlphaBeforeNone !== null) {
+      alphaInp.value = prevAlphaBeforeNone
+      prevAlphaBeforeNone = null
+    }
+
+    colorInp.value = val
+    setWrapBgFromColor(colorInp.value)
+    updateColorTag()
+    resetBrightBoost()
+
+    if (wrapEl && fabBtn && pal){
+      wrapEl.classList.remove('palette-open')
+      fabBtn.setAttribute('aria-expanded','false')
+      pal.setAttribute('aria-hidden','true')
+    }
+  })
+})
+    // document.querySelectorAll('.efw-chip').forEach(chip => {
+    //   chip.addEventListener('click', () => {
+    //     colorInp.value = chip.dataset.color;
+    //     document.querySelectorAll('.efw-chip').forEach(c => c.classList.remove('active'));
+    //     chip.classList.add('active');
+    //     setWrapBgFromColor(colorInp.value);
+    //     updateColorTag();
+
+    //     // Reset the brightBoost
+    //     resetBrightBoost()
+
+    //     // Automatically close the panel after selecting a color
+    //     if (wrapEl && fabBtn && pal){
+    //       wrapEl.classList.remove('palette-open');
+    //       fabBtn.setAttribute('aria-expanded','false');
+    //       pal.setAttribute('aria-hidden','true');
+    //     }
+    //   });
+    // });
     
     // Handle intensity select dropdown
     if (intensitySelect) {
@@ -1212,31 +1266,36 @@ Explanation, Step	Purpose:
       });
     }
 
-    function resetBrightBoost(){
-        brightBoostUsed = false;
-        if (brightBoostBtn) brightBoostBtn.classList.remove('is-used')
-    }
+function updateBrightnessUI() {
+    const brightnessPercent = parseInt(alphaInp.value, 10) / 100
+    const brightColor = brightenHex(colorInp.value, brightnessPercent)
+    brightnessControlEl.style.backgroundColor = brightColor
+}
 
+function resetBrightBoost() {
+    isBrightBoostOn = false
+    // if (brightBoostBtn) brightBoostBtn.classList.remove('is-used')
+}
 
-    if (brightBoostBtn) {
-        brightBoostBtn.addEventListener('click', () => {
-        if (brightBoostUsed) return;
+if (brightBoostBtn) {
+    brightBoostBtn.addEventListener('click', () => {
+        const currentAlpha = parseInt(alphaInp.value, 10) || 0
 
-        brightBoostUsed = true;
+        if (!isBrightBoostOn) {
+            // turn ON
+            alphaInp.value = Math.min(100, currentAlpha + BRIGHT_BOOST_STEP)
+            isBrightBoostOn = true
+            // brightBoostBtn.classList.add('is-used')
+        } else {
+            // turn OFF (revert)
+            alphaInp.value = Math.max(0, currentAlpha - BRIGHT_BOOST_STEP)
+            isBrightBoostOn = false
+            // brightBoostBtn.classList.remove('is-used')
+        }
 
-        let currentAlpha = parseInt(alphaInp.value, 10);
-        const newAlpha = Math.min(100, currentAlpha + 10);
-        alphaInp.value = newAlpha;
-    
-        // Update brightness control background if applicable
-        const brightnessPercent = newAlpha / 100;
-        const brightColor = brightenHex(colorInp.value, brightnessPercent);
-        brightnessControlEl.style.backgroundColor = brightColor;
-    
-        // Optional: disable the button visually
-        brightBoostBtn.classList.add('is-used')
-      });
-    }
+        updateBrightnessUI()
+    })
+}
     
     //  Start updated UI 
   

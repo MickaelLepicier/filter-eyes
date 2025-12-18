@@ -173,6 +173,21 @@ select.efw-inline option {
   box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.2);
 }
 
+/* .efw-chip-none{
+  background: transparent;
+  border: 2px solid rgba(255,255,255,.75);
+  position: relative;
+}
+.efw-chip-none::after{
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 999px;
+  border: 2px solid rgba(255,255,255,.75);
+  transform: rotate(45deg);
+  clip-path: polygon(0 45%,100% 45%,100% 55%,0 55%);
+} */
+
 /* Buttons */
 .efw-btn {
   appearance: none;
@@ -433,10 +448,10 @@ select.efw-inline option {
   pointer-events: none;
 }
 /* “used once” state */
-#efw-bright-boost.is-used {
+/* #efw-bright-boost.is-used {
   opacity: 0.5;
   pointer-events: none;
-}
+} */
 
 
 /* Floating print button */
