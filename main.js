@@ -387,14 +387,14 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     let animationId = null; 
 
     // detected eye positions
-    let currentEyes = { left: null, right: null }; 
+    let currentEyes = { right: null, left: null }; 
 
     // eyelid polygon data
-    let currentEyelids = { left: null, right: null }; 
+    let currentEyelids = { right: null, left: null }; 
     
     // BUG - this is a test solution for the bug when the hand in front of eye doesn't remove color filter 
-    // let leftIrisDetected = false;
     // let rightIrisDetected = false;
+    // let leftIrisDetected = false;
 
     // iris rendering parameters
     const REALISM = {
@@ -402,7 +402,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       MIN_RADIUS: 6,
       MAX_RADIUS: 38,
       IRIS_SHRINK: 0.92,
-      RING_MARGIN: 1, // 1.05 0.98 0.92
+      RING_MARGIN: 1.08, // 1.05 0.98 0.92
       PUPIL_RATIO: 0.32,
       LIMBAL_WIDTH: 0.18, // Control the limbal ring (dark ring around the iris)
       LIMBAL_ALPHA: 0.55, // Control the limbal ring (dark ring around the iris)
@@ -415,7 +415,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       EDGE_DARKEN: 0.25, // Darkens the outer edge of the iris
       INNER_GLOW: 0.20, // Adds a subtle bright ring inside the iris
       SMOOTHING: 0.35,
-      CENTER_BLEND: 0.6, // Controls how the pupil blends with the iris
+      CENTER_BLEND: 0.75, // Controls how the pupil blends with the iris
       CENTER_Y_OFFSET: -0.06, // Slightly shifts the iris center
       FIBER_JITTER: 0.06,
       FIBER_LIGHT_ALPHA: 0.06, // Affect iris texture contrast
@@ -433,8 +433,10 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     const EYELID_MASK = {
       ENABLED: true,
       CLIP_STRENGTH: 0.55,
-      BLUR_PX: 1.4
+      BLUR_PX: 0.4
     };
+
+
 
     // blink sensitivity thresholds:
     const BLINK = { T0: 0.10, T1: 0.18 }; // Ramp: below T0 turns off, between T0 and T1 fades, above T1 full
@@ -535,18 +537,19 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     }
 
     // landmark index lists to locate the iris and eyelid shapes for each eye
-    const LEFT_IRIS_RING = [468,469,159,471];
-    const LEFT_IRIS_CENTER = 472;
-    const RIGHT_IRIS_RING = [473,474,386,476];
-    const RIGHT_IRIS_CENTER = 477;
-
-    // Left eye
-    const LEFT_EYE_LOWER = [33, 7, 163, 144, 145, 153, 154, 155]
-    const LEFT_EYE_UPPER = [133, 173, 157, 158, 159, 160, 161, 246]
+    const RIGHT_IRIS_RING = [468,471,470,469]; 
+    const RIGHT_IRIS_CENTER = 472;
+    
+    const LEFT_IRIS_RING = [473,474,475,476];
+    const LEFT_IRIS_CENTER = 477;
 
     // Right eye
-    const RIGHT_EYE_LOWER = [263, 249, 390, 373, 374, 380, 381, 382]
-    const RIGHT_EYE_UPPER = [362, 398, 384, 385, 386, 387, 388, 466]
+    const RIGHT_EYE_LOWER = [33, 7, 163, 144, 145, 153, 154, 155]
+    const RIGHT_EYE_UPPER = [133, 173, 157, 158, 159, 160, 161, 246]
+
+    // Left eye
+    const LEFT_EYE_LOWER = [263, 249, 390, 373, 374, 380, 381, 382]
+    const LEFT_EYE_UPPER = [362, 398, 384, 385, 386, 387, 388, 466]
 
      /* --- Utility Functions For Status, Security, Sizing and Math --- */
 
@@ -605,7 +608,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
     // ease between a and b
     function smoothstep(a,b,x){ const t = Math.max(0, Math.min(1, (x - a)/(b - a))); return t*t*(3-2*t); }
 
-    // calculate the center of the eye
+    // calculate the center of the eye 
     function calculateEyeCenter(landmarks, ringIndices, centerIdx) {
       const W = canvas.width, H = canvas.height;
       if (Number.isInteger(centerIdx) && landmarks[centerIdx]) {
@@ -619,7 +622,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return { x: sumX / Math.max(1,n), y: sumY / Math.max(1,n) };
     }
 
-    // average distance from ring points to center
+    // average distance from ring points to center 
     function calculateEyeRadius(center, landmarks, ringIndices) {
       let total = 0, n = 0, minD = Infinity;
       for (const idx of ringIndices) {
@@ -634,7 +637,7 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       return Math.max(REALISM.MIN_RADIUS, Math.min(REALISM.MAX_RADIUS, base));
     }
 
-    // nudge center towards iris ring centroid and apply vertical offset (REALISM.CENTER_Y_OFFSET)
+    // nudge center towards iris ring centroid and apply vertical offset (REALISM.CENTER_Y_OFFSET) 
     function biasEyeCenter(centerRaw, radius, ringIndices, landmarks){
       let ax=0, ay=0, n=0;
       for (const idx of ringIndices){
@@ -667,10 +670,11 @@ function debug_drawRightEyeLandmarks(ctx, lists, { showIndex=true } = {}){
       const low = ptsFromIndices(landmarks, lowerIdx);
 
       if (up.length < 2 || low.length < 2) return null;
+      
        return up.concat(low); 
     }
 
-    // decide whether a detected center is left or right eye by comparing to currentEyes centers
+    // decide whether a detected center is left or right eye by comparing to currentEyes centers 
     function getEyeSide(center){
       if (!currentEyes.left && !currentEyes.right) return null;
       const dl = currentEyes.left ? Math.hypot(center.x-currentEyes.left.center.x, center.y-currentEyes.left.center.y) : Infinity;
@@ -898,8 +902,8 @@ Explanation, Step	Purpose:
 
     // @ BUG - this is for the bug when the hand in front of eye doesn't remove color filter 
     // Check if iris landmarks are detected (not occluded)
-    // leftIrisDetected = landmarks[LEFT_IRIS_CENTER] && landmarks[LEFT_IRIS_CENTER].z > -0.2;
     // rightIrisDetected = landmarks[RIGHT_IRIS_CENTER] && landmarks[RIGHT_IRIS_CENTER].z > -0.2;
+    // leftIrisDetected = landmarks[LEFT_IRIS_CENTER] && landmarks[LEFT_IRIS_CENTER].z > -0.2;
 
       // debug test
       if (DEBUG_SHOW_RIGHT_EYE) {
@@ -919,37 +923,36 @@ Explanation, Step	Purpose:
         // console.table(lists.nearCenter)
       }
            
-     const leftUpIdx = LEFT_EYE_UPPER[0];
-     const leftLowIdx = LEFT_EYE_LOWER[0];
-     const leftLeftIdx = LEFT_EYE_LOWER[LEFT_EYE_LOWER.length -1];
-     const leftRightIdx = LEFT_EYE_UPPER[LEFT_EYE_UPPER.length -1];
-     
-     const rightUpIdx = RIGHT_EYE_UPPER[0];
-     const rightLowIdx = RIGHT_EYE_LOWER[0];
-     const rightLeftIdx = RIGHT_EYE_LOWER[RIGHT_EYE_LOWER.length -1];
-     const rightRightIdx = RIGHT_EYE_UPPER[RIGHT_EYE_UPPER.length -1];
+      
+      const rightUpIdx = RIGHT_EYE_UPPER[0];
+      const rightLowIdx = RIGHT_EYE_LOWER[0];
+      const rightLeftIdx = RIGHT_EYE_LOWER[RIGHT_EYE_LOWER.length -1];
+      const rightRightIdx = RIGHT_EYE_UPPER[RIGHT_EYE_UPPER.length -1];
+
+      const leftUpIdx = LEFT_EYE_UPPER[0];
+      const leftLowIdx = LEFT_EYE_LOWER[0];
+      const leftLeftIdx = LEFT_EYE_LOWER[LEFT_EYE_LOWER.length -1];
+      const leftRightIdx = LEFT_EYE_UPPER[LEFT_EYE_UPPER.length -1];
 
       // Calculate how open the eyes are
-      const openL = eyeOpenness(landmarks, leftUpIdx, leftLowIdx, leftLeftIdx, leftRightIdx);
       const openR = eyeOpenness(landmarks, rightUpIdx, rightLowIdx, rightLeftIdx, rightRightIdx);
-      //            eyeOpenness(L, upIdx, lowIdx, leftIdx, rightIdx)
+      const openL = eyeOpenness(landmarks, leftUpIdx, leftLowIdx, leftLeftIdx, leftRightIdx);
       
-      // const openR = eyeOpenness(landmarks, rightUpIdx, rightLowIdx, rightLeftIdx, rightRightIdx);
-
-      const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
       const rightRawPoly = buildEyeClip(landmarks, RIGHT_EYE_UPPER, RIGHT_EYE_LOWER);
-      currentEyelids.left  = smoothPoly(currentEyelids.left,  leftRawPoly);
+      const leftRawPoly  = buildEyeClip(landmarks, LEFT_EYE_UPPER, LEFT_EYE_LOWER);
+    
       currentEyelids.right = smoothPoly(currentEyelids.right, rightRawPoly);
+      currentEyelids.left  = smoothPoly(currentEyelids.left,  leftRawPoly);
 
       const lerp = (a,b,t)=> a + (b-a)*t;
 
       // Calculate the center and radius of the iris in both eyes
-      const leftCenterRaw  = calculateEyeCenter(landmarks, LEFT_IRIS_RING, LEFT_IRIS_CENTER);
-      const leftRadiusRaw  = calculateEyeRadius(leftCenterRaw, landmarks, LEFT_IRIS_RING);
       const rightCenterRaw = calculateEyeCenter(landmarks, RIGHT_IRIS_RING, RIGHT_IRIS_CENTER);
       const rightRadiusRaw = calculateEyeRadius(rightCenterRaw, landmarks, RIGHT_IRIS_RING);
+      const leftCenterRaw  = calculateEyeCenter(landmarks, LEFT_IRIS_RING, LEFT_IRIS_CENTER);
+      const leftRadiusRaw  = calculateEyeRadius(leftCenterRaw, landmarks, LEFT_IRIS_RING);
 
-      // smooth per-eye center/radius/open values using REALISM.SMOOTHING
+      // smooth per-eye center/radius/open values using REALISM.SMOOTHING 
       function smooth(prev, next){
         if (!prev) return next;
         const t = 1 - REALISM.SMOOTHING;
@@ -960,17 +963,17 @@ Explanation, Step	Purpose:
         };
       }
 
-      // Correct the center position with a function that also takes into account slight tilts of the eye
-      const leftCenter = biasEyeCenter(leftCenterRaw, leftRadiusRaw, LEFT_IRIS_RING, landmarks);
+      // Correct the center position with a function that also takes into account slight tilts of the eye 
       const rightCenter = biasEyeCenter(rightCenterRaw, rightRadiusRaw, RIGHT_IRIS_RING, landmarks);
+      const leftCenter = biasEyeCenter(leftCenterRaw, leftRadiusRaw, LEFT_IRIS_RING, landmarks);
 
       // Create the new values ​​(for the current prime) of each eye: center, radius, opening size
-      const leftNext  = { center: leftCenter,  radius: leftRadiusRaw,  open: openL };
       const rightNext = { center: rightCenter, radius: rightRadiusRaw, open: openR };
+      const leftNext  = { center: leftCenter,  radius: leftRadiusRaw,  open: openL };
 
       currentEyes = {
-        left:  currentEyes.left  ? smooth(currentEyes.left,  leftNext)  : leftNext,
-        right: currentEyes.right ? smooth(currentEyes.right, rightNext) : rightNext
+        right: currentEyes.right ? smooth(currentEyes.right, rightNext) : rightNext,
+        left:  currentEyes.left  ? smooth(currentEyes.left,  leftNext)  : leftNext
       };
     }
 
@@ -1164,7 +1167,7 @@ Explanation, Step	Purpose:
         if (animationId) { cancelAnimationFrame(animationId); animationId = null; }
         if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
         video.srcObject = null; // Clears the video source
-        currentEyes = { left: null, right: null }; // Resets eye information (no longer recognized)
+        currentEyes = { right: null, left: null }; // Resets eye information (no longer recognized)
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
         // Removes classics indicating that the camera is active or the palette is open
@@ -1304,25 +1307,42 @@ if (brightBoostBtn) {
         const pad = (n)=> String(n).padStart(2,'0');
         const d = new Date();
         const fname = `eye-filter-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.png`;
-        if (canvas.toBlob){
-          canvas.toBlob((blob)=>{
-            if(!blob) return;
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url; a.download = fname; document.body.appendChild(a);
-            a.click();
-            setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
-          }, 'image/png');
-        } else {
-          const url = canvas.toDataURL('image/png');
-          const a = document.createElement('a');
-          a.href = url; a.download = fname; document.body.appendChild(a);
-          a.click(); a.remove();
+   
+        const out = document.createElement('canvas')
+        out.width = canvas.width
+        out.height = canvas.height
+        const octx = out.getContext('2d')
+
+        // apply horizontal mirror (scaleX(-1))
+        octx.translate(out.width, 0)
+        octx.scale(-1, 1)
+        octx.drawImage(canvas, 0, 0)
+
+        const downloadBlob = (blob) => {
+          if (!blob) return
+          const url = URL.createObjectURL(blob)
+          const a = document.createElement('a')
+          a.href = url
+          a.download = fname
+          document.body.appendChild(a)
+          a.click()
+          setTimeout(() => { URL.revokeObjectURL(url); a.remove() }, 0)
         }
-      }catch(err){
-        setStatus('שגיאה בצילום/הורדה', false);
-      }
-    }
+
+      if (out.toBlob) out.toBlob(downloadBlob, 'image/png')
+      else {
+        const url = out.toDataURL('image/png')
+          const a = document.createElement('a')
+          a.href = url
+          a.download = fname
+          document.body.appendChild(a)
+          a.click()
+          a.remove()
+        }
+        } catch (err) {
+          setStatus('שגיאה בצילום/הורדה', false)
+        }
+         }
     if (btnCapture){ btnCapture.addEventListener('click', snapshotAndDownload); }
  //  End updated UI  
 
